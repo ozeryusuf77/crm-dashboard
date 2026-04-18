@@ -1,5 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createClient } from '@supabase/supabase-js'
+const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { createClient } = require('@supabase/supabase-js')
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
@@ -7,8 +7,9 @@ const genAI = new GoogleGenerativeAI(
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -41,6 +42,7 @@ ${context}
 
 ${geschiedenis ? `GESPREKSGESCHIEDENIS:\n${geschiedenis}\n` : ''}
 VRAAG: ${vraag}`
+
     const result = await model.generateContent(prompt)
     const antwoord = result.response.text().trim()
 
