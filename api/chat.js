@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' })
 
     const prompt = `Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.
 Beantwoord vragen op basis van de onderstaande kennisbank.
