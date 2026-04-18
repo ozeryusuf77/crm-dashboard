@@ -26,7 +26,10 @@ export default function App() {
   const [leads,    setLeads]    = useState(MOCK_LEADS)
   const [emails,   setEmails]   = useState(MOCK_EMAILS)
   const [visitors, setVisitors] = useState(MOCK_WEBSITE_VISITORS)
-  const [kb, setKb] = useState(MOCK_KB)
+  const [kb, setKb] = useState([])
+  useEffect(() => {
+  getKnowledgeItems().then(data => { if (data.length > 0) setKb(data) })
+}, [])
   
 useEffect(() => {
   getKnowledgeItems().then(data => { if (data.length > 0) setKb(data) })
