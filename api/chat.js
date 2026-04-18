@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 
-const genAI = new GoogleGenerativeAI(process.env.VITE_GEMINI_API_KEY)
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
 )
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
