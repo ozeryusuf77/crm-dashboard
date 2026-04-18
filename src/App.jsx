@@ -11,7 +11,7 @@ import {
 import ChatView    from './components/ChatView.jsx'
 import EmailView   from './components/EmailView.jsx'
 import WebChatView from './components/WebChatView.jsx'
-import { getKnowledgeItems, saveKnowledgeItem } from './lib/supabase.js'
+import { getKnowledgeItems, saveKnowledgeItem, deleteKnowledgeItem } from './lib/supabase.js'
 import {
   MOCK_LEADS, MOCK_EMAILS, MOCK_WEBSITE_VISITORS, MOCK_KB, MOCK_LOGS
 } from './lib/mockData.js'
