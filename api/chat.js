@@ -28,9 +28,9 @@ export default async function handler(req, res) {
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
-    const prompt = `Je bent een vriendelijke klantenservice-assistent voor MijnBedrijf.
+    const prompt = `Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand
 Beantwoord vragen uitsluitend op basis van onderstaande kennisbank.
 Antwoord altijd in het Nederlands. Houd antwoorden kort en duidelijk.
 Als je het antwoord niet weet, zeg dan dat je de vraag doorstuurt naar een collega.
