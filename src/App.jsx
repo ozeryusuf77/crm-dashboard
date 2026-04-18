@@ -13,40 +13,31 @@ import EmailView   from './components/EmailView.jsx'
 import WebChatView from './components/WebChatView.jsx'
 import { getKnowledgeItems, saveKnowledgeItem, deleteKnowledgeItem } from './lib/supabase.js'
 import {
-  MOCK_LEADS, MOCK_EMAILS, MOCK_WEBSITE_VISITORS, MOCK_KB, MOCK_LOGS
+  MOCK_LEADS, MOCK_EMAILS, MOCK_WEBSITE_VISITORS, MOCK_LOGS
 } from './lib/mockData.js'
 
 export default function App() {
-  // ─── Global state ──────────────────────────────────────────────────────────
   const [page,    setPage]    = useState('overview')
   const [navOpen, setNavOpen] = useState({ wa: true, em: false, wb: false, kb: false })
-  const [chat,    setChat]    = useState(null) // { type: 'wa'|'em'|'wb', id: string }
-
-  // data state (in production these come from Supabase)
+  const [chat,    setChat]    = useState(null)
   const [leads,    setLeads]    = useState(MOCK_LEADS)
   const [emails,   setEmails]   = useState(MOCK_EMAILS)
   const [visitors, setVisitors] = useState(MOCK_WEBSITE_VISITORS)
-  const [kb, setKb] = useState([])
-  
-useEffect(() => {
-  getKnowledgeItems().then(data => { if (data.length > 0) setKb(data) })
-}, [])
+  const [kb,       setKb]       = useState([])
   const [logs]                  = useState(MOCK_LOGS)
-
-  // filter / sort state for WA chats
   const [waFilter, setWaFilter] = useState('all')
   const [waSort,   setWaSort]   = useState('date-desc')
   const [kbFilter, setKbFilter] = useState('all')
 
-  // ─── Navigation ────────────────────────────────────────────────────────────
-  const navigate = useCallback((p) => { setPage(p); setChat(null) }, [])
-  const toggleNav = useCallback((k) => {
-    setNavOpen(prev => ({ ...prev, [k]: !prev[k] }))
+  useEffect(() => {
+    getKnowledgeItems().then(data => { if (data.length > 0) setKb(data) })
   }, [])
-  const openChat = useCallback((type, id) => setChat({ type, id }), [])
-  const closeChat = useCallback(() => setChat(null), [])
 
-  // ─── WhatsApp lead actions ──────────────────────────────────────────────────
+  const navigate    = useCallback((p) => { setPage(p); setChat(null) }, [])
+  const toggleNav   = useCallback((k) => { setNavOpen(prev => ({ ...prev, [k]: !prev[k] })) }, [])
+  const openChat    = useCallback((type, id) => setChat({ type, id }), [])
+  const closeChat   = useCallback(() => setChat(null), [])
+
   const toggleWaAI = useCallback((id) => {
     setLeads(prev => prev.map(l => {
       if (l.id !== id) return l
@@ -79,7 +70,6 @@ useEffect(() => {
     setLeads(prev => prev.map(l => l.id !== id ? l : { ...l, prev_status: status }))
   }, [])
 
-  // ─── Email actions ──────────────────────────────────────────────────────────
   const sendDraft = useCallback((id) => {
     setEmails(prev => prev.map(e => e.id !== id ? e : { ...e, draft_status: 'sent' }))
   }, [])
@@ -92,7 +82,6 @@ useEffect(() => {
     setEmails(prev => prev.map(e => e.id !== id ? e : { ...e, draft: text }))
   }, [])
 
-  // ─── Website visitor actions ────────────────────────────────────────────────
   const toggleWbAI = useCallback((id) => {
     setVisitors(prev => prev.map(v => {
       if (v.id !== id) return v
@@ -110,7 +99,6 @@ useEffect(() => {
     }))
   }, [])
 
- // ─── KB actions ─────────────────────────────────────────────────────────────
   const saveKbItem = useCallback(async (item) => {
     await saveKnowledgeItem(item)
     const data = await getKnowledgeItems()
@@ -123,7 +111,6 @@ useEffect(() => {
     setKb(data)
   }, [])
 
-  // ─── Shared props ───────────────────────────────────────────────────────────
   const sharedProps = {
     leads, emails, visitors, kb, logs,
     waFilter, setWaFilter, waSort, setWaSort, kbFilter, setKbFilter,
@@ -134,7 +121,6 @@ useEffect(() => {
     saveKbItem, deleteKbItem,
   }
 
-  // ─── Render active chat view ────────────────────────────────────────────────
   const renderChat = () => {
     if (!chat) return null
     if (chat.type === 'wa') {
@@ -152,32 +138,31 @@ useEffect(() => {
     return null
   }
 
-  // ─── Render main page ───────────────────────────────────────────────────────
   const renderPage = () => {
     if (chat) return renderChat()
     const pages = {
-      overview:     <PageOverview   {...sharedProps} />,
-      'wa-chats':   <PageWaChats    {...sharedProps} />,
-      'wa-esc':     <PageWaEsc      {...sharedProps} />,
-      'wa-leads':   <PageWaLeads    {...sharedProps} />,
-      'wa-reports': <PageWaReports  {...sharedProps} />,
-      'wa-settings':<PageWaSettings {...sharedProps} />,
-      'em-inbox':   <PageEmInbox    {...sharedProps} />,
-      'em-leads':   <PageEmLeads    {...sharedProps} />,
-      'em-reports': <PageEmReports  {...sharedProps} />,
-      'em-settings':<PageEmSettings {...sharedProps} />,
-      'wb-live':    <PageWbLive     {...sharedProps} />,
-      'wb-bot':     <PageWbBot      {...sharedProps} />,
-      'wb-leads':   <PageWbLeads    {...sharedProps} />,
-      'wb-reports': <PageWbReports  {...sharedProps} />,
-      'wb-settings':<PageWbSettings {...sharedProps} />,
-      'kb-overview':<PageKbOverview {...sharedProps} />,
-      'kb-entries': <PageKbEntries  {...sharedProps} />,
-      'kb-add':     <PageKbAdd      {...sharedProps} />,
-      'kb-crawl':   <PageKbCrawl   {...sharedProps} />,
-      'kb-supabase':<PageKbSupabase {...sharedProps} />,
-      'kb-gemini':  <PageKbGemini   {...sharedProps} />,
-      'kb-logs':    <PageKbLogs     {...sharedProps} />,
+      overview:      <PageOverview   {...sharedProps} />,
+      'wa-chats':    <PageWaChats    {...sharedProps} />,
+      'wa-esc':      <PageWaEsc      {...sharedProps} />,
+      'wa-leads':    <PageWaLeads    {...sharedProps} />,
+      'wa-reports':  <PageWaReports  {...sharedProps} />,
+      'wa-settings': <PageWaSettings {...sharedProps} />,
+      'em-inbox':    <PageEmInbox    {...sharedProps} />,
+      'em-leads':    <PageEmLeads    {...sharedProps} />,
+      'em-reports':  <PageEmReports  {...sharedProps} />,
+      'em-settings': <PageEmSettings {...sharedProps} />,
+      'wb-live':     <PageWbLive     {...sharedProps} />,
+      'wb-bot':      <PageWbBot      {...sharedProps} />,
+      'wb-leads':    <PageWbLeads    {...sharedProps} />,
+      'wb-reports':  <PageWbReports  {...sharedProps} />,
+      'wb-settings': <PageWbSettings {...sharedProps} />,
+      'kb-overview': <PageKbOverview {...sharedProps} />,
+      'kb-entries':  <PageKbEntries  {...sharedProps} />,
+      'kb-add':      <PageKbAdd      {...sharedProps} />,
+      'kb-crawl':    <PageKbCrawl    {...sharedProps} />,
+      'kb-supabase': <PageKbSupabase {...sharedProps} />,
+      'kb-gemini':   <PageKbGemini   {...sharedProps} />,
+      'kb-logs':     <PageKbLogs     {...sharedProps} />,
     }
     return pages[page] || <div className="empty-state">Sectie in opbouw.</div>
   }
