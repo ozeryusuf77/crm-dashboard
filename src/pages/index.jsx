@@ -505,7 +505,7 @@ export function PageKbCrawl({ saveKbItem, navigate }) {
         },
         body: JSON.stringify({
           url,
-          limit: 20,
+          limit: 1000,
           scrapeOptions: { formats: ['markdown'] }
         })
       })
