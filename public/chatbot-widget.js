@@ -1,5 +1,5 @@
 (function() {
-  const VERCEL_URL = 'https://jouw-app.vercel.app'
+  const VERCEL_URL = 'https://crm-dashboard-blond-phi.vercel.app'
 
   const style = document.createElement('style')
   style.textContent = `
