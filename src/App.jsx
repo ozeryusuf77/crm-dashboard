@@ -6,7 +6,7 @@ import {
   PageWaChats, PageWaEsc, PageWaLeads, PageWaReports, PageWaSettings,
   PageEmInbox, PageEmLeads, PageEmReports, PageEmSettings,
   PageWbLive, PageWbBot, PageWbLeads, PageWbReports, PageWbSettings,
-  PageKbOverview, PageKbEntries, PageKbAdd, PageKbSupabase, PageKbGemini, PageKbLogs,
+  PageKbOverview, PageKbEntries, PageKbAdd, PageKbCrawl, PageKbSupabase, PageKbGemini, PageKbLogs,
 } from './pages/index.jsx'
 import ChatView    from './components/ChatView.jsx'
 import EmailView   from './components/EmailView.jsx'
@@ -172,6 +172,7 @@ useEffect(() => {
       'kb-overview':<PageKbOverview {...sharedProps} />,
       'kb-entries': <PageKbEntries  {...sharedProps} />,
       'kb-add':     <PageKbAdd      {...sharedProps} />,
+      'kb-crawl':   <PageKbCrawl   {...sharedProps} />,
       'kb-supabase':<PageKbSupabase {...sharedProps} />,
       'kb-gemini':  <PageKbGemini   {...sharedProps} />,
       'kb-logs':    <PageKbLogs     {...sharedProps} />,

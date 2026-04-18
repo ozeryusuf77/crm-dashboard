@@ -482,7 +482,129 @@ export function PageKbAdd({ saveKbItem, navigate }) {
     </div>
   )
 }
+// ── KB Crawl ─────────────────────────────────────────────────────────────────
+export function PageKbCrawl({ saveKbItem, navigate }) {
+  const [url, setUrl] = useState('https://megaschuifwand.nl')
+  const [status, setStatus] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [results, setResults] = useState([])
+  const [selected, setSelected] = useState([])
 
+  const crawl = async () => {
+    if (!url.trim()) return
+    setLoading(true)
+    setStatus('Website ophalen...')
+    setResults([])
+    setSelected([])
+    try {
+      const res = await fetch('https://api.firecrawl.dev/v1/crawl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_FIRECRAWL_API_KEY}`
+        },
+        body: JSON.stringify({
+          url,
+          limit: 20,
+          scrapeOptions: { formats: ['markdown'] }
+        })
+      })
+      const data = await res.json()
+      if (!data.id) throw new Error(data.error || 'Crawl mislukt')
+
+      setStatus('Paginas worden gescand... even geduld (30-60 sec)')
+
+      // Poll for results
+      let attempts = 0
+      const poll = async () => {
+        attempts++
+        if (attempts > 30) { setStatus('Timeout — probeer opnieuw'); setLoading(false); return }
+        const r = await fetch(`https://api.firecrawl.dev/v1/crawl/${data.id}`, {
+          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_FIRECRAWL_API_KEY}` }
+        })
+        const d = await r.json()
+        if (d.status === 'completed') {
+          const pages = d.data?.filter(p => p.markdown && p.markdown.length > 100) || []
+          setResults(pages)
+          setSelected(pages.map((_, i) => i))
+          setStatus(`${pages.length} pagina's gevonden — selecteer wat je wilt opslaan`)
+          setLoading(false)
+        } else {
+          setStatus(`Bezig... ${d.completed || 0}/${d.total || '?'} pagina's gescand`)
+          setTimeout(poll, 3000)
+        }
+      }
+      setTimeout(poll, 3000)
+    } catch (err) {
+      setStatus('Fout: ' + err.message)
+      setLoading(false)
+    }
+  }
+
+  const saveSelected = () => {
+    const toSave = selected.map(i => results[i]).filter(Boolean)
+    toSave.forEach((page, i) => {
+      const title = page.metadata?.title || `Pagina ${i + 1}`
+      const content = page.markdown.slice(0, 3000)
+      saveKbItem({ title, category: 'product', content, active: true })
+    })
+    showToast(`${toSave.length} pagina's opgeslagen in kennisbank ✓`)
+    navigate('kb-entries')
+  }
+
+  const toggleSelect = (i) => {
+    setSelected(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <div className="sec-title">Website crawlen met Firecrawl</div>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+          Vul je website URL in — Firecrawl haalt automatisch alle pagina's op en zet de inhoud in je kennisbank.
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input className="form-input" style={{ flex: 1 }} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://jouwwebsite.nl" />
+          <button className="btn btn-primary" onClick={crawl} disabled={loading}>
+            {loading ? 'Bezig...' : 'Start crawl'}
+          </button>
+        </div>
+        {status && (
+          <div style={{ fontSize: 12, padding: '8px 12px', background: loading ? '#fef3c7' : '#f0fdf4', borderRadius: 8, color: loading ? '#92400e' : '#166534', marginBottom: 10 }}>
+            {loading && '⏳ '}{status}
+          </div>
+        )}
+      </div>
+
+      {results.length > 0 && (
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div className="sec-title" style={{ marginBottom: 0 }}>
+              Gevonden pagina's — {selected.length}/{results.length} geselecteerd
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-sm" onClick={() => setSelected(results.map((_, i) => i))}>Alles</button>
+              <button className="btn btn-sm" onClick={() => setSelected([])}>Geen</button>
+              <button className="btn btn-primary btn-sm" onClick={saveSelected} disabled={selected.length === 0}>
+                Opslaan in kennisbank ({selected.length})
+              </button>
+            </div>
+          </div>
+          {results.map((page, i) => (
+            <div key={i} className="data-row" style={{ cursor: 'pointer', opacity: selected.includes(i) ? 1 : 0.45 }} onClick={() => toggleSelect(i)}>
+              <input type="checkbox" checked={selected.includes(i)} onChange={() => toggleSelect(i)} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{page.metadata?.title || `Pagina ${i + 1}`}</div>
+                <div className="row-detail">{page.metadata?.sourceURL || ''}</div>
+              </div>
+              <div style={{ fontSize: 11, color: '#888', flexShrink: 0 }}>{Math.round(page.markdown.length / 100) / 10}k tekens</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 // ─── KB Supabase ──────────────────────────────────────────────────────────────
 export function PageKbSupabase() {
   return (

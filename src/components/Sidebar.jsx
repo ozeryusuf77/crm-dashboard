@@ -35,6 +35,7 @@ export default function Sidebar({ page, navOpen, onNav, onToggleNav, escCount, e
         { id: 'kb-overview', label: 'Overzicht' },
         { id: 'kb-entries',  label: 'Alle items',   badge: kbCount || null, badgeCls: 'nb-amber' },
         { id: 'kb-add',      label: '+ Nieuw item' },
+        { id: 'kb-crawl',    label: '🔍 Website crawlen' },
         { id: 'kb-supabase', label: 'Supabase bron' },
         { id: 'kb-gemini',   label: 'Gemini instellingen' },
         { id: 'kb-logs',     label: 'AI query logs' },
