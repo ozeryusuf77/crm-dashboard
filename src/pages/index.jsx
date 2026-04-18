@@ -416,37 +416,69 @@ function KbEditForm({ item, onSave, onDelete, onCancel }) {
 }
 
 // ─── KB Add ───────────────────────────────────────────────────────────────────
+// ── KB Add ──────────────────────────────────────────────────────────────────
 export function PageKbAdd({ saveKbItem, navigate }) {
+  const [mode, setMode] = useState('bulk')
+  const [bulk, setBulk] = useState('')
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ title: '', category: 'product', content: '', active: true })
-  const submit = () => {
-    if (!form.title.trim() || !form.content.trim()) { showToast('Vul titel en inhoud in'); return }
-    saveKbItem(form); showToast('Opgeslagen in Supabase ✓'); navigate('kb-entries')
+
+  const saveBulk = () => {
+    if (!bulk.trim()) { showToast('Plak eerst wat tekst in'); return }
+    setSaving(true)
+    const chunks = bulk.trim().split(/\n\s*\n/).filter(c => c.trim())
+    const items = chunks.length > 0 ? chunks : [bulk.trim()]
+    items.forEach((chunk, i) => {
+      if (chunk.trim()) {
+        saveKbItem({ title: `Website inhoud ${i + 1}`, category: 'product', content: chunk.trim(), active: true })
+      }
+    })
+    setSaving(false)
+    showToast(`${items.length} item${items.length !== 1 ? 's' : ''} opgeslagen ✓`)
+    navigate('kb-entries')
   }
+
+  const submitSingle = () => {
+    if (!form.title.trim() || !form.content.trim()) { showToast('Vul titel en inhoud in'); return }
+    saveKbItem(form); showToast('Opgeslagen ✓'); navigate('kb-entries')
+  }
+
   return (
-    <div className="card">
-      <SectionTitle>Nieuw kennisitem</SectionTitle>
-      <div className="form-group">
-        <label className="form-label">Titel</label>
-        <input className="form-input" value={form.title} placeholder="Bijv. Openingstijden support" onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <button className={`btn${mode === 'bulk' ? ' btn-primary' : ''}`} onClick={() => setMode('bulk')}>Bulk plakken</button>
+        <button className={`btn${mode === 'single' ? ' btn-primary' : ''}`} onClick={() => setMode('single')}>Enkel item</button>
       </div>
-      <div className="form-group">
-        <label className="form-label">Categorie</label>
-        <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-          {Object.entries(CAT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Inhoud — dit leest Gemini als antwoord</label>
-        <textarea className="form-input" value={form.content} rows={5} placeholder="Schrijf hier de informatie die de AI moet kennen..." onChange={e => setForm(f => ({ ...f, content: e.target.value }))} />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <ToggleSwitch checked={form.active} onChange={v => setForm(f => ({ ...f, active: v }))} />
-        <span style={{ fontSize: 13, color: '#555' }}>Direct activeren voor Gemini</span>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-primary" onClick={submit}>Opslaan in Supabase</button>
-        <button className="btn" onClick={() => navigate('kb-entries')}>Annuleren</button>
-      </div>
+      {mode === 'bulk' ? (
+        <div className="card">
+          <div className="sec-title">Bulk plakken — kopieer alles van je website</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>Plak hier alle tekst van je website. Lege regels tussen stukken tekst worden automatisch losse items.</div>
+          <textarea className="form-input" value={bulk} onChange={e => setBulk(e.target.value)} rows={18} placeholder="Plak hier alle tekst van je website..." />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <span style={{ fontSize: 12, color: '#888' }}>{bulk.length} tekens — {bulk.trim().split(/\n\s*\n/).filter(c => c.trim()).length} items</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={() => setBulk('')}>Wissen</button>
+              <button className="btn btn-primary" onClick={saveBulk} disabled={saving}>{saving ? 'Opslaan...' : 'Alles opslaan in kennisbank'}</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="sec-title">Enkel kennisitem toevoegen</div>
+          <div className="form-group"><label className="form-label">Titel</label><input className="form-input" value={form.title} placeholder="Bijv. Levertijden" onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
+          <div className="form-group"><label className="form-label">Categorie</label>
+            <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+              {Object.entries(CAT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div className="form-group"><label className="form-label">Inhoud</label><textarea className="form-input" value={form.content} rows={6} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <ToggleSwitch checked={form.active} onChange={v => setForm(f => ({ ...f, active: v }))} />
+            <span style={{ fontSize: 13, color: '#555' }}>Direct activeren voor Gemini</span>
+          </div>
+          <button className="btn btn-primary" onClick={submitSingle}>Opslaan in Supabase</button>
+        </div>
+      )}
     </div>
   )
 }
