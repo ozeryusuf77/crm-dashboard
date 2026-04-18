@@ -41,13 +41,6 @@ ${context}
 
 ${geschiedenis ? `GESPREKSGESCHIEDENIS:\n${geschiedenis}\n` : ''}
 VRAAG: ${vraag}`
-
-KENNISBANK:
-${context}
-
-${geschiedenis ? `GESPREKSGESCHIEDENIS:\n${geschiedenis}\n` : ''}
-VRAAG: ${vraag}`
-
     const result = await model.generateContent(prompt)
     const antwoord = result.response.text().trim()
 
