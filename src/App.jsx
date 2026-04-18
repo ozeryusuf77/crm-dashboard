@@ -11,7 +11,7 @@ import {
 import ChatView    from './components/ChatView.jsx'
 import EmailView   from './components/EmailView.jsx'
 import WebChatView from './components/WebChatView.jsx'
-import { getKnowledgeItems } from './lib/supabase.js'
+import { getKnowledgeItems, saveKnowledgeItem } from './lib/supabase.js'
 import {
   MOCK_LEADS, MOCK_EMAILS, MOCK_WEBSITE_VISITORS, MOCK_KB, MOCK_LOGS
 } from './lib/mockData.js'
@@ -114,15 +114,11 @@ useEffect(() => {
   }, [])
 
   // ─── KB actions ─────────────────────────────────────────────────────────────
-  const saveKbItem = useCallback((item) => {
-    setKb(prev => item.id
-      ? prev.map(k => k.id !== item.id ? k : { ...k, ...item, updated: '17 apr' })
-      : [...prev, { ...item, id: Date.now(), updated: '17 apr' }])
-  }, [])
-
-  const deleteKbItem = useCallback((id) => {
-    setKb(prev => prev.filter(k => k.id !== id))
-  }, [])
+  const saveKbItem = useCallback(async (item) => {
+  await saveKnowledgeItem(item)
+  const data = await getKnowledgeItems()
+  if (data.length > 0) setKb(data)
+}, [])
 
   // ─── Shared props ───────────────────────────────────────────────────────────
   const sharedProps = {
