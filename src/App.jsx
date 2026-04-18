@@ -110,8 +110,14 @@ useEffect(() => {
     }))
   }, [])
 
-  // ─── KB actions ─────────────────────────────────────────────────────────────
-const deleteKbItem = useCallback(async (id) => {
+ // ─── KB actions ─────────────────────────────────────────────────────────────
+  const saveKbItem = useCallback(async (item) => {
+    await saveKnowledgeItem(item)
+    const data = await getKnowledgeItems()
+    if (data.length > 0) setKb(data)
+  }, [])
+
+  const deleteKbItem = useCallback(async (id) => {
     await deleteKnowledgeItem(id)
     const data = await getKnowledgeItems()
     setKb(data)
