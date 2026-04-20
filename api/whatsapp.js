@@ -1,16 +1,19 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
+const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { createClient } = require('@supabase/supabase-js')
 
 const VERIFY_TOKEN = 'megaschuifwand_webhook_2026'
 
 module.exports = async function handler(req, res) {
-  // Webhook verificatie door Meta
   if (req.method === 'GET') {
     const mode = req.query['hub.mode']
     const token = req.query['hub.verify_token']
     const challenge = req.query['hub.challenge']
+    
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('Webhook verified!')
       return res.status(200).send(challenge)
     }
+    console.log('Verification failed', { mode, token })
     return res.status(403).end()
   }
 
@@ -18,27 +21,13 @@ module.exports = async function handler(req, res) {
 
   try {
     const body = req.body
-    if (!body.object) return res.sendStatus(404)
+    if (!body.object) return res.sendStatus(200)
 
-    const entry = body.entry?.[0]
-    const change = entry?.changes?.[0]
-    const message = change?.value?.messages?.[0]
-
+    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
     if (!message || message.type !== 'text') return res.sendStatus(200)
 
     const from = message.from
     const tekst = message.text.body
-
-    // Haal kennisbank op via Supabase en stuur naar Gemini
-    const aiRes = await fetch(`${process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL}/functions/v1/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vraag: tekst, geschiedenis: '' })
-    })
-
-    // Direct Gemini aanroepen
-    const { GoogleGenerativeAI } = require('@google/generative-ai')
-    const { createClient } = require('@supabase/supabase-js')
 
     const genAI = new GoogleGenerativeAI(
       process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
@@ -60,4 +49,34 @@ module.exports = async function handler(req, res) {
     const prompt = `Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.
 Beantwoord vragen op basis van de onderstaande kennisbank.
 Antwoord altijd in het Nederlands. Houd antwoorden kort en duidelijk.
-Als de kennisbank ge
+Als de kennisbank geen antwoord bevat, zeg dan dat je de vraag doorstuurt naar een collega.
+
+KENNISBANK:
+${context}
+
+VRAAG: ${tekst}`
+
+    const result = await model.generateContent(prompt)
+    const antwoord = result.response.text().trim()
+
+    await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: from,
+        type: 'text',
+        text: { body: antwoord }
+      })
+    })
+
+    return res.sendStatus(200)
+
+  } catch (err) {
+    console.error('WhatsApp webhook error:', err)
+    return res.sendStatus(500)
+  }
+}
