@@ -10,10 +10,8 @@ module.exports = async function handler(req, res) {
     const challenge = req.query['hub.challenge']
     
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('Webhook verified!')
       return res.status(200).send(challenge)
     }
-    console.log('Verification failed', { mode, token })
     return res.status(403).end()
   }
 
@@ -21,10 +19,10 @@ module.exports = async function handler(req, res) {
 
   try {
     const body = req.body
-    if (!body.object) return res.sendStatus(200)
+    if (!body.object) return res.status(200).end()
 
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
-    if (!message || message.type !== 'text') return res.sendStatus(200)
+    if (!message || message.type !== 'text') return res.status(200).end()
 
     const from = message.from
     const tekst = message.text.body
@@ -73,10 +71,10 @@ VRAAG: ${tekst}`
       })
     })
 
-    return res.sendStatus(200)
+    return res.status(200).end()
 
   } catch (err) {
     console.error('WhatsApp webhook error:', err)
-    return res.sendStatus(500)
+    return res.status(500).end()
   }
 }
