@@ -21,6 +21,7 @@ module.exports = async function handler(req, res) {
   if (!vraag) return res.status(400).json({ error: 'Geen vraag' })
 
   try {
+    // Haal kennisbank op
     const { data: items } = await supabase
       .from('knowledge_base')
       .select('title, content')
@@ -29,17 +30,20 @@ module.exports = async function handler(req, res) {
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
 
+    // Haal systeem prompt op uit Supabase
+    const { data: promptData } = await supabase
+      .from('system_prompt')
+      .select('content')
+      .eq('id', 1)
+      .single()
+
+    const systeemPrompt = promptData?.content || 'Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.'
+
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
-    const prompt = `Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.
-Beantwoord vragen op basis van de onderstaande kennisbank.
-Antwoord altijd in het Nederlands. Houd antwoorden kort en duidelijk.
-Als de kennisbank geen antwoord bevat, zeg dan dat je de vraag doorstuurt naar een collega.
-Vraag NIET om naam of e-mail tenzij de klant zelf aangeeft een offerte of bestelling te willen.
+    const prompt = `${systeemPrompt}
 
-KENNISBANK:
-${context}
-
+${context ? `KENNISBANK:\n${context}\n` : ''}
 ${geschiedenis ? `GESPREKSGESCHIEDENIS:\n${geschiedenis}\n` : ''}
 VRAAG: ${vraag}`
 
