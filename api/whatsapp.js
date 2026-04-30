@@ -8,7 +8,6 @@ module.exports = async function handler(req, res) {
     const mode = req.query['hub.mode']
     const token = req.query['hub.verify_token']
     const challenge = req.query['hub.challenge']
-    
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
       return res.status(200).send(challenge)
     }
@@ -42,19 +41,32 @@ module.exports = async function handler(req, res) {
       .limit(10)
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
+
+    const { data: promptData } = await supabase
+      .from('system_prompt')
+      .select('content')
+      .eq('id', 1)
+      .single()
+
+    const systeemPrompt = promptData?.content || 'Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.'
+
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
-    const prompt = `Je bent een vriendelijke klantenservice-assistent voor Megaschuifwand.
-Beantwoord vragen op basis van de onderstaande kennisbank.
-Antwoord altijd in het Nederlands. Houd antwoorden kort en duidelijk.
-Als de kennisbank geen antwoord bevat, zeg dan dat je de vraag doorstuurt naar een collega.
+    const prompt = `${systeemPrompt}
 
-KENNISBANK:
-${context}
-
+${context ? `KENNISBANK:\n${context}\n` : ''}
 VRAAG: ${tekst}`
 
-    const result = await model.generateContent(prompt)
+    let result
+    for (let i = 0; i < 3; i++) {
+      try {
+        result = await model.generateContent(prompt)
+        break
+      } catch (err) {
+        if (i === 2) throw err
+        await new Promise(r => setTimeout(r, 2000))
+      }
+    }
     const antwoord = result.response.text().trim()
 
     await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
