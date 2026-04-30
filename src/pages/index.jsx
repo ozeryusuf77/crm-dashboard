@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge, Avatar, DataRow, FilterBar, MetricCard, SectionTitle, WfRow, ConnBar, ToggleSwitch, showToast } from '../components/ui.jsx'
 
 // ─── Shared sort helper ───────────────────────────────────────────────────────
@@ -635,33 +635,78 @@ export function PageKbSupabase() {
   )
 }
 
-// ─── KB Gemini ────────────────────────────────────────────────────────────────
+// ── KB Gemini ──────────────────────────────────────────────────────
 export function PageKbGemini() {
+  const [promptText, setPromptText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('system_prompt')
+      .select('content')
+      .eq('id', 1)
+      .single()
+      .then(({ data }) => {
+        if (data) setPromptText(data.content)
+        setLoading(false)
+      })
+  }, [])
+
+  const savePrompt = async () => {
+    setSaving(true)
+    await supabase
+      .from('system_prompt')
+      .update({ content: promptText, updated_at: new Date().toISOString() })
+      .eq('id', 1)
+    setSaving(false)
+    showToast('Systeem prompt opgeslagen ✓')
+  }
+
   return (
     <div>
-      <ConnBar label="Gemini 1.5 Pro verbonden" right={<span style={{ fontSize: 12, color: '#166534', display: 'flex', alignItems: 'center', gap: 5 }}><div className="status-dot dot-green" />API actief</span>} />
+      <ConnBar label="Gemini 2.5 Flash verbonden" right={<span style={{ fontSize: 12, color: '#166534', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />Actief</span>} />
+
+      <div className="card">
+        <div className="sec-title" style={{ marginBottom: 10 }}>Systeem Prompt</div>
+        <p style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+          Dit is de basistekst die de AI gebruikt voor elk gesprek. Wijzig en sla op — werkt direct voor WhatsApp en chatbot.
+        </p>
+        {loading ? (
+          <div style={{ color: '#888', fontSize: 13 }}>Laden...</div>
+        ) : (
+          <>
+            <textarea
+              className="draft-textarea"
+              style={{ minHeight: 400, fontFamily: 'monospace', fontSize: 12 }}
+              value={promptText}
+              onChange={e => setPromptText(e.target.value)}
+            />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary" onClick={savePrompt} disabled={saving}>
+                {saving ? 'Opslaan...' : 'Opslaan'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="two-col">
         <div className="card">
-          <SectionTitle>API instellingen</SectionTitle>
-          <div className="form-group"><label className="form-label">Gemini API key</label><input className="form-input" type="password" defaultValue="AIzaSy..." /></div>
+          <div className="sec-title">API instellingen</div>
+          <div className="form-group"><label className="form-label">Gemini API key</label><input className="form-input" type="password" placeholder="••••••••" /></div>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <select className="form-select"><option>gemini-1.5-pro-latest</option><option>gemini-1.5-flash</option></select>
+            <select className="form-select"><option>gemini-2.5-flash</option><option>gemini-2.0-flash</option></select>
           </div>
-          <div className="form-group"><label className="form-label">Max tokens</label><input className="form-input" type="number" defaultValue={1024} /></div>
           <button className="btn btn-primary" onClick={() => showToast('Gemini instellingen opgeslagen ✓')}>Opslaan</button>
         </div>
         <div className="card">
-          <SectionTitle>Gedragsinstellingen</SectionTitle>
-          {['Alleen kennisbank gebruiken', 'Escaleer bij score <0.75', 'Nederlands forceren', 'Conversatiehistorie meesturen', 'Klantnaam gebruiken'].map((t, i) => (
+          <div className="sec-title">Gedragsinstellingen</div>
+          {['Alleen kennisbank gebruiken', 'Escaleer bij score <0.75', 'Nederlands forceren', 'Conversatiehistorie meesturen', 'Kennisbank context meesturen'].map((t, i) => (
             <WfRow key={i} num={i + 1} text={t} right={<ToggleSwitch checked={true} onChange={() => {}} />} />
           ))}
         </div>
-      </div>
-      <div className="card">
-        <SectionTitle>Systeem-prompt</SectionTitle>
-        <textarea className="form-input" rows={6} defaultValue="Je bent een vriendelijke klantenservice-assistent voor MijnBedrijf. Beantwoord vragen uitsluitend op basis van de kennisbank uit Supabase. Antwoord altijd in het Nederlands. Gebruik de naam van de klant als die bekend is. Als een vraag buiten de kennisbank valt, geef aan dat je doorverwijst naar een collega." />
-        <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={() => showToast('Systeem-prompt opgeslagen ✓')}>Opslaan</button>
       </div>
     </div>
   )
