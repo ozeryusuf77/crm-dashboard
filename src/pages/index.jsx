@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase.js'
 import { useState, useEffect } from 'react'
 import { Badge, Avatar, DataRow, FilterBar, MetricCard, SectionTitle, WfRow, ConnBar, ToggleSwitch, showToast } from '../components/ui.jsx'
 
