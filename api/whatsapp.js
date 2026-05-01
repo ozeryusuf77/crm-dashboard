@@ -23,6 +23,11 @@ module.exports = async function handler(req, res) {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
     if (!message || message.type !== 'text') return res.status(200).end()
 
+    // Negeer berichten ouder dan 30 seconden
+    const msgTimestamp = message.timestamp
+    const now = Math.floor(Date.now() / 1000)
+    if (now - msgTimestamp > 30) return res.status(200).end()
+
     const from = message.from
     const tekst = message.text.body
 
