@@ -23,7 +23,6 @@ module.exports = async function handler(req, res) {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
     if (!message || message.type !== 'text') return res.status(200).end()
 
-    // Negeer berichten ouder dan 30 seconden
     const msgTimestamp = message.timestamp
     const now = Math.floor(Date.now() / 1000)
     if (now - msgTimestamp > 30) return res.status(200).end()
@@ -39,6 +38,26 @@ module.exports = async function handler(req, res) {
       process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
     )
 
+    // Sla klant bericht op
+    await supabase.from('conversations').insert({
+      phone: from,
+      role: 'user',
+      message: tekst
+    })
+
+    // Haal laatste 10 berichten op voor dit nummer
+    const { data: history } = await supabase
+      .from('conversations')
+      .select('role, message')
+      .eq('phone', from)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    const geschiedenis = history
+      ? [...history].reverse().map(h => `${h.role === 'user' ? 'Klant' : 'Assistent'}: ${h.message}`).join('\n')
+      : ''
+
+    // Haal kennisbank op
     const { data: items } = await supabase
       .from('knowledge_base')
       .select('title, content')
@@ -47,6 +66,7 @@ module.exports = async function handler(req, res) {
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
 
+    // Haal systeem prompt op
     const { data: promptData } = await supabase
       .from('system_prompt')
       .select('content')
@@ -60,6 +80,7 @@ module.exports = async function handler(req, res) {
     const prompt = `${systeemPrompt}
 
 ${context ? `KENNISBANK:\n${context}\n` : ''}
+${geschiedenis ? `GESPREKSGESCHIEDENIS:\n${geschiedenis}\n` : ''}
 VRAAG: ${tekst}`
 
     let result
@@ -73,6 +94,13 @@ VRAAG: ${tekst}`
       }
     }
     const antwoord = result.response.text().trim()
+
+    // Sla AI antwoord op
+    await supabase.from('conversations').insert({
+      phone: from,
+      role: 'assistant',
+      message: antwoord
+    })
 
     await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
