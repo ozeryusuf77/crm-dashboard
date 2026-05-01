@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
       .from('knowledge_base')
       .select('title, content')
       .eq('active', true)
-      .limit(10)
+      .limit(20)
 
     const context = items?.map(i => `[${i.title}]\n${i.content}`).join('\n\n') || ''
 
