@@ -3,50 +3,45 @@ const { createClient } = require('@supabase/supabase-js')
 
 const VERIFY_TOKEN = 'megaschuifwand_webhook_2026'
 
+function bepaalSporen(breedte) {
+  if (breedte <= 204) return 2
+  if (breedte <= 305) return 3
+  if (breedte <= 405) return 4
+  if (breedte <= 505) return 5
+  if (breedte <= 605) return 6
+  if (breedte <= 705) return 7
+  return null
+}
+
 function extractState(history) {
-  const state = {
-    breedte: null,
-    sporen: null,
-    glas: null,
-    kleur: null,
-    pakket: null,
-    montage: null,
-  }
+  const state = { breedte: null, sporen: null, glas: null, kleur: null, pakket: null, montage: null }
 
   for (const msg of history) {
     const text = msg.message.toLowerCase()
 
     if (msg.role === 'user') {
-      const breedteMatch = msg.message.match(/\b(\d{2,3})\b/)
-      if (breedteMatch) {
-        const num = parseInt(breedteMatch[1])
+      const match = msg.message.match(/\b(1[0-9]{2}|[2-6][0-9]{2}|70[0-5])\b/)
+      if (match) {
+        const num = parseInt(match[1])
         if (num >= 100 && num <= 705) {
           state.breedte = num
-          if (num >= 162 && num <= 204) state.sporen = 2
-          else if (num >= 205 && num <= 305) state.sporen = 3
-          else if (num >= 306 && num <= 405) state.sporen = 4
-          else if (num >= 406 && num <= 505) state.sporen = 5
-          else if (num >= 506 && num <= 605) state.sporen = 6
-          else if (num >= 606 && num <= 705) state.sporen = 7
-          else if (num < 162) state.sporen = 2
+          state.sporen = bepaalSporen(num)
         }
       }
-    }
 
-    if (text.includes('getint') || text.includes('getin')) state.glas = 'getint'
-    if (text.includes('helder')) state.glas = 'helder'
+      if (text.includes('getint')) state.glas = 'getint'
+      else if (text.includes('helder')) state.glas = 'helder'
 
-    if (text.includes('zwart') || text.includes('9005')) state.kleur = 'zwart (RAL 9005)'
-    if (text.includes('antraciet') || text.includes('7016')) state.kleur = 'antraciet (RAL 7016)'
-    if (text.includes('crème') || text.includes('creme') || text.includes('9001')) state.kleur = 'crème (RAL 9001)'
+      if (text.includes('zwart') || text.includes('9005')) state.kleur = 'zwart (RAL 9005)'
+      else if (text.includes('antraciet') || text.includes('7016')) state.kleur = 'antraciet (RAL 7016)'
+      else if (text.includes('crème') || text.includes('creme') || text.includes('9001')) state.kleur = 'crème (RAL 9001)'
 
-    if (text.includes('luxe')) state.pakket = 'luxe'
-    else if (text.includes('aanbevolen') || text.includes('aanbevel')) state.pakket = 'aanbevolen'
-    else if (text.includes('basis')) state.pakket = 'basis'
+      if (text.includes('luxe')) state.pakket = 'luxe'
+      else if (text.includes('aanbevolen')) state.pakket = 'aanbevolen'
+      else if (text === 'basis') state.pakket = 'basis'
 
-    if (msg.role === 'user') {
-      if (text.includes('montage') && (text.includes('ja') || text.includes('graag') || text.includes('wel'))) state.montage = 'ja'
-      if (text === 'nee' || text === 'nee.' || (text.includes('zelf') && text.includes('monter'))) state.montage = 'nee'
+      if (text.includes('zelf') || text === 'nee' || text === 'nee.') state.montage = 'nee'
+      else if (text === 'ja' || (text.includes('montage') && !text.includes('zelf'))) state.montage = 'ja'
     }
   }
 
@@ -88,20 +83,36 @@ module.exports = async function handler(req, res) {
 
     const from = message.from
     const tekst = message.text.body
+    const messageId = message.id
 
-    const genAI = new GoogleGenerativeAI(
-      process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
-    )
     const supabase = createClient(
       process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
     )
 
+    // DUPLICATE CHECK — stop als dit bericht al verwerkt is
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('message_id', messageId)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      console.log('Duplicate bericht genegeerd:', messageId)
+      return res.status(200).end()
+    }
+
+    // Sla klantbericht op MET message_id
     await supabase.from('conversations').insert({
       phone: from,
       role: 'user',
-      message: tekst
+      message: tekst,
+      message_id: messageId
     })
+
+    const genAI = new GoogleGenerativeAI(
+      process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
+    )
 
     const { data: history } = await supabase
       .from('conversations')
@@ -127,26 +138,26 @@ module.exports = async function handler(req, res) {
     const systeemPrompt = promptData?.content || ''
 
     const stateContext = `
-HUIDIGE KLANTGEGEVENS (gebruik deze EXACT in je antwoord, vervang NOOIT met placeholders):
-- Breedte: ${state.breedte ? state.breedte + ' cm' : 'nog niet opgegeven'}
-- Spoor systeem: ${state.sporen ? state.sporen + '-spoor' : 'nog niet bepaald'}
-- Glas: ${state.glas || 'nog niet gekozen'}
-- Kleur: ${state.kleur || 'nog niet gekozen'}
-- Pakket: ${state.pakket || 'nog niet gekozen'}
-- Montage: ${state.montage || 'nog niet gevraagd'}
+VASTGESTELDE KLANTGEGEVENS — GEBRUIK DEZE EXACT, GEEN PLACEHOLDERS:
+- Breedte: ${state.breedte ? state.breedte + ' cm ✓' : 'ONBEKEND → vraag dit eerst'}
+- Spoor systeem: ${state.sporen ? state.sporen + '-spoor ✓' : 'nog te bepalen'}
+- Glas: ${state.glas ? state.glas + ' ✓' : 'ONBEKEND → vraag na breedte'}
+- Kleur: ${state.kleur ? state.kleur + ' ✓' : 'ONBEKEND → vraag na glas'}
+- Pakket: ${state.pakket ? state.pakket + ' ✓' : 'ONBEKEND → vraag na kleur'}
+- Montage: ${state.montage ? state.montage + ' ✓' : 'ONBEKEND → vraag na pakket'}
 
-VOLGENDE STAP DIE JE MOET DOEN: ${volgendeStap}
-- vraag_breedte → Vraag de breedte van de opening
-- vraag_glas → Breedte is ${state.breedte}cm = ${state.sporen}-spoor systeem. Vraag helder of getint glas
-- vraag_kleur → Vraag welke kleur (zwart/antraciet/crème)
-- vraag_pakket → Vraag welk pakket (basis/aanbevolen/luxe)
-- vraag_montage → Klant heeft ${state.pakket} gekozen. Vraag of montage gewenst is
-- stuur_link → Geef samenvatting met echte waarden en stuur de juiste productlink
+VOLGENDE ACTIE: ${volgendeStap}
+- vraag_breedte → Vraag alleen de breedte in cm
+- vraag_glas → Zeg dat breedte ${state.breedte}cm = ${state.sporen}-spoor. Vraag helder of getint glas
+- vraag_kleur → Vraag kleur (zwart/antraciet/crème)
+- vraag_pakket → Noem samenvatting (${state.sporen}-spoor, ${state.glas}, ${state.kleur}) en vraag pakket
+- vraag_montage → Vraag ALLEEN: zelf monteren of montage erbij?
+- stuur_link → Geef volledige samenvatting met alle werkelijke waarden en stuur productlink
 
-KRITISCH:
-- Gebruik NOOIT placeholders zoals [X], [kleur], [helder/getint] in je antwoord
-- Gebruik ALTIJD de werkelijke waarden uit HUIDIGE KLANTGEGEVENS hierboven
-- Als volgende stap "stuur_link" is: geef volledige samenvatting met alle werkelijke waarden en stuur de link
+VERBODEN:
+- Gebruik NOOIT [X], [kleur], [pakket] of andere placeholders
+- Vraag NOOIT opnieuw iets dat al bekend is
+- Vraag NOOIT opnieuw de breedte — die is ${state.breedte ? state.breedte + ' cm' : 'onbekend'}
 `
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
@@ -160,7 +171,7 @@ ${geschiedenis}
 
 LAATSTE BERICHT VAN KLANT: ${tekst}
 
-Geef nu je antwoord (maximaal 1 vraag, in het Nederlands, geen placeholders):`
+Antwoord nu (Nederlands, max 1 vraag, geen placeholders):`
 
     let result
     for (let i = 0; i < 3; i++) {
