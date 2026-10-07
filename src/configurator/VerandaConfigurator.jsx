@@ -247,9 +247,12 @@ export default function VerandaConfigurator() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      const p = new URLSearchParams(window.location.search)
-      p.set('c', naarUrl(cfg))
-      window.history.replaceState(window.history.state, '', `?${p}${window.location.hash}`)
+      // In een afgeschermd iframe (inbedding) mag de URL soms niet wijzigen; dan alleen overslaan.
+      try {
+        const p = new URLSearchParams(window.location.search)
+        p.set('c', naarUrl(cfg))
+        window.history.replaceState(window.history.state, '', `?${p}${window.location.hash}`)
+      } catch { /* deellink blijft via de knop beschikbaar */ }
     }, 300)
     return () => clearTimeout(t)
   }, [cfg])
