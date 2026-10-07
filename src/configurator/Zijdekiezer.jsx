@@ -10,6 +10,8 @@ export default function Zijdekiezer({ cfg, L, zijde, vak, onKies }) {
   const s = Math.min(sx, sz)
   const w = L.W * s, d = L.D * s
   const x0 = (B - w) / 2, y0 = 26
+  // Voorwand-lijn ligt op de staanderlijn (bij overstek dus binnen de dakrand).
+  const yVoor = y0 + (L.zVoorStaander / L.D) * d
   const lijn = (k, i) => {
     const t = wandVoor(cfg, i === undefined ? k : `${k}#${i}`)?.type || 'open'
     const actief = zijde === k && (i === undefined || vak === 'alle' || vak === i)
@@ -29,8 +31,8 @@ export default function Zijdekiezer({ cfg, L, zijde, vak, onKies }) {
         return (
           <g key={`v${i}`} onClick={() => onKies('voor', L.vakken.length > 1 ? i : 'alle')}>
             <title>{`Voorzijde${L.vakken.length > 1 ? ` vak ${i + 1}` : ''}: ${titel('voor', i)}`}</title>
-            <line x1={a + 3} y1={y0 + d} x2={b - 3} y2={y0 + d} {...lijn('voor', i)} />
-            <rect x={a} y={y0 + d - 10} width={b - a} height={20} fill="transparent" />
+            <line x1={a + 3} y1={yVoor} x2={b - 3} y2={yVoor} {...lijn('voor', i)} />
+            <rect x={a} y={yVoor - 10} width={b - a} height={20} fill="transparent" />
           </g>
         )
       })}
@@ -47,12 +49,16 @@ export default function Zijdekiezer({ cfg, L, zijde, vak, onKies }) {
       {[['links', x0], ['rechts', x0 + w]].map(([k, x]) => (
         <g key={k} onClick={() => onKies(k, 'alle')}>
           <title>{`${k === 'links' ? 'Linker' : 'Rechter'}zijde: ${titel(k)}`}</title>
-          <line x1={x} y1={y0 + 4} x2={x} y2={y0 + d - 4} {...lijn(k)} />
-          <rect x={x - 10} y={y0} width={20} height={d} fill="transparent" />
+          <line x1={x} y1={y0 + 4} x2={x} y2={yVoor - 4} {...lijn(k)} />
+          <rect x={x - 10} y={y0} width={20} height={yVoor - y0} fill="transparent" />
         </g>
       ))}
+      {L.koppelingen.map((k, i) => (
+        <line key={`k${i}`} x1={x0 + (k + L.W / 2) * s} y1={y0} x2={x0 + (k + L.W / 2) * s} y2={y0 + d}
+          stroke="#0a2342" strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />
+      ))}
       {L.xStaanders.map((x, i) => (
-        <rect key={i} x={x0 + (x + L.W / 2) * s - 3.5} y={y0 + d - 3.5} width={7} height={7} fill="#333a40" />
+        <rect key={i} x={x0 + (x + L.W / 2) * s - 3.5} y={yVoor - 3.5} width={7} height={7} fill="#333a40" />
       ))}
       <text x={B / 2} y={H - 6} textAnchor="middle" className="vc-zk-tekst" fill="#6b7480">Tuin</text>
     </svg>

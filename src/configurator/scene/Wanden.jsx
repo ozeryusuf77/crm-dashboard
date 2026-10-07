@@ -1,9 +1,10 @@
 // Wandvullingen voor één vak/zijde. Lokaal assenstelsel: de wand loopt van
 // x = -lengte/2 tot +lengte/2, y = 0 tot hoogte, buitenkant = +z.
 import { useRef } from 'react'
-import { useMat, glasVoor } from './materials.js'
+import { useMat, paneelVoor } from './materials.js'
 import { useAnim, klikbaar } from './anim.js'
 import { aantalSchuifPanelen, aantalPuiVleugels } from '../layout.js'
+import { SCHUIFWAND } from '../options.js'
 
 function Box({ args, position, mat, schaduw = true }) {
   return (
@@ -17,13 +18,13 @@ function Box({ args, position, mat, schaduw = true }) {
 function Schuifwand({ lengte, hoogte, open, glas, richting }) {
   const mat = useMat()
   const n = aantalSchuifPanelen(lengte)
-  const overlap = 0.045
+  const overlap = SCHUIFWAND.overlap
   const pw = (lengte + (n - 1) * overlap) / n
   const rail = 0.024
   const railD = n * rail + 0.014
   const bovenH = 0.055, onderH = 0.028
   const gh = hoogte - bovenH - onderH - 0.03
-  const glasMat = glasVoor(mat, glas)
+  const glasMat = paneelVoor(mat, glas)
 
   const nLinks = richting === 'midden' ? Math.floor(n / 2) : richting === 'rechts' ? 0 : n
   const dicht = i => -lengte / 2 + pw / 2 + i * (pw - overlap)
@@ -141,9 +142,11 @@ function VastGlas({ lengte, hoogte, glas }) {
       {Array.from({ length: n - 1 }, (_, i) => (
         <Box key={i} args={[0.035, hoogte - 0.09, 0.05]} position={[-lengte / 2 + b * (i + 1), hoogte / 2, 0]} mat={mat.frame} />
       ))}
-      <mesh material={glasVoor(mat, glas)} position={[0, hoogte / 2, 0]} renderOrder={3}>
-        <boxGeometry args={[lengte, hoogte - 0.09, 0.01]} />
-      </mesh>
+      {Array.from({ length: n }, (_, i) => (
+        <mesh key={`g${i}`} material={paneelVoor(mat, glas)} position={[-lengte / 2 + b * (i + 0.5), hoogte / 2, 0]} renderOrder={3}>
+          <boxGeometry args={[b - 0.035, hoogte - 0.09, 0.01]} />
+        </mesh>
+      ))}
     </group>
   )
 }

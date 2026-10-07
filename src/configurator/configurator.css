@@ -105,6 +105,27 @@
 .vc-swatch i { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
 .vc-swatch.actief { border-color: var(--vc-accent); background: var(--vc-accent-zacht); }
 
+/* Modelkeuze */
+.vc-modellen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vc-model { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; border: 1.5px solid var(--vc-rand); border-radius: 12px; background: #fff; cursor: pointer; text-align: left; color: var(--vc-donker); transition: border-color .15s, background .15s; }
+.vc-model:hover { border-color: #b9c4ce; }
+.vc-model.actief { border-color: var(--vc-accent); background: var(--vc-accent-zacht); box-shadow: 0 0 0 3px rgba(0,161,196,0.12); }
+.vc-model-svg { width: 100%; height: auto; margin-bottom: 6px; color: #3a4148; }
+.vc-model-naam { font-weight: 650; font-size: 14px; color: var(--vc-tekst); }
+.vc-model-sub { font-size: 11.5px; color: var(--vc-zacht); line-height: 1.35; }
+.vc-model-prijs { font-size: 12px; font-weight: 600; color: var(--vc-donker); margin-top: 4px; }
+.vc-spec { margin: 6px 0 0 16px; padding: 0; }
+.vc-spec li { margin: 2px 0; }
+.vc-groep-noot { font-weight: 500; text-transform: none; letter-spacing: 0; color: #9aa3ad; margin-left: 4px; }
+
+/* Maten en koppeling */
+.vc-koppelschema { width: 100%; height: auto; display: block; margin: 4px 0 6px; }
+.vc-ks-tekst { font-size: 9px; fill: #5b6570; }
+.vc-ks-tekst.sterk { fill: var(--vc-donker); font-weight: 700; }
+.vc-koppel { background: #fff7e6; border: 1px solid #f4d9a4; color: #6b4a0f; border-radius: 10px; padding: 10px 12px; margin: 6px 0 10px; font-size: 12.5px; line-height: 1.5; }
+.vc-koppel p { margin-top: 3px; }
+.vc-melding { background: #eef7fb; border: 1px solid #b6dcea; color: #0b4a63; border-radius: 9px; padding: 8px 11px; font-size: 12.5px; margin: -4px 0 12px; }
+
 /* Voet met prijs en navigatie */
 .vc-voet { border-top: 1px solid var(--vc-rand); padding: 12px 18px; display: flex; align-items: center; gap: 12px; background: #fff; }
 .vc-prijs { flex: 1; display: flex; flex-direction: column; }
@@ -144,6 +165,7 @@
   .vc-paneel { width: 100%; flex: 1; min-height: 0; border-left: 0; border-top: 1px solid var(--vc-rand); }
   .vc-paneel-inhoud { padding: 14px 16px 18px; }
   .vc-standpunt span { display: none; }
+  .vc-modellen { grid-template-columns: 1fr 1fr; }
   .vc-weergave { top: auto; bottom: 12px; flex-direction: row; }
   .vc-dock { bottom: auto; top: 60px; padding: 8px 10px; }
   .vc-dock-hint { display: none; }

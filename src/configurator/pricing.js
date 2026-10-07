@@ -1,8 +1,8 @@
 import {
-  MODELLEN, GOOT_STIJLEN, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN, SPIE_TYPES,
+  MODELLEN, BEVESTIGINGEN, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN, SPIE_TYPES,
   DOEK_KLEUREN, ZONWERING, EXTRA_PRIJZEN, OPEN_RICHTINGEN, vind,
 } from './options.js'
-import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels } from './layout.js'
+import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, screensPerVak } from './layout.js'
 
 const ZIJDE_LABEL = { voor: 'Voorzijde', links: 'Linkerzijde', rechts: 'Rechterzijde', achter: 'Achterzijde' }
 
@@ -14,19 +14,33 @@ export function berekenOfferte(cfg) {
   const L = maakLayout(cfg)
   const regels = []
   const model = vind(MODELLEN, cfg.model)
-  const goot = vind(GOOT_STIJLEN, cfg.goot)
+  const bevestiging = vind(BEVESTIGINGEN, cfg.bevestiging)
   const kleur = vind(KLEUREN, cfg.kleur)
   const dak = vind(DAKKEN, cfg.dak)
 
   const m2 = L.oppervlak
-  const basis = m2 * dak.prijsM2 * (model.prijsFactor || 1) * (kleur.prijsFactor || 1)
+  const lijnen = L.vrijstaand ? 2 : 1
+  const nStaanders = L.xStaanders.length * lijnen
+  const basis = m2 * dak.prijsM2 * model.prijsFactor * (bevestiging.prijsFactor || 1) * (kleur.prijsFactor || 1)
   regels.push({
-    label: `Veranda ${model.label.toLowerCase()}`,
-    detail: `${cfg.breedte} × ${cfg.diepte} cm · ${L.xStaanders.length * (L.vrijstaand ? 2 : 1)} staanders · ${kleur.label} (${kleur.ral})`,
+    label: `Veranda ${model.label} — ${bevestiging.label.toLowerCase()}`,
+    detail: `${cfg.breedte} × ${cfg.diepte} cm · doorloophoogte ${cfg.hoogte} cm · ${kleur.label} (${kleur.ral})`,
     prijs: basis,
   })
   regels.push({ label: 'Dakbedekking', detail: `${dak.groep} · ${dak.label}`, prijs: 0 })
-  if (goot.prijs) regels.push({ label: 'Goot', detail: goot.label, prijs: goot.prijs })
+  if (L.koppelingen.length) {
+    regels.push({
+      label: `Uitvoering in ${L.delen.length} delen`,
+      detail: `${L.delen.length} × ${Math.round(L.deelB * 100)} cm (max ${model.maxDeel} cm uit één stuk) · koppelstuk in goot en muurprofiel, staander op elke koppeling`,
+      prijs: L.koppelingen.length * EXTRA_PRIJZEN.koppelset,
+    })
+  }
+  const extraStaanders = nStaanders - 2 * lijnen - L.koppelingen.length * lijnen
+  regels.push({
+    label: 'Staanders',
+    detail: `${nStaanders} staanders (${Math.round(model.staander[0] * 1000)} × ${Math.round(model.staander[1] * 1000)} mm), max ${Math.round(L.overspanning * 100)} cm overspanning`,
+    prijs: Math.max(0, extraStaanders) * EXTRA_PRIJZEN.staander,
+  })
 
   // Wanden: groepeer per zijde.
   const slots = wandSlots(L)
@@ -49,7 +63,7 @@ export function berekenOfferte(cfg) {
     })
   }
 
-  for (const zijde of ['links', 'rechts']) {
+  for (const zijde of L.spieMogelijk ? ['links', 'rechts'] : []) {
     const spie = vind(SPIE_TYPES, cfg.spie[zijde])
     if (spie.id === 'geen') continue
     regels.push({ label: `${spie.label} — ${ZIJDE_LABEL[zijde]}`, detail: `${cfg.diepte} cm diep`, prijs: L.D * spie.prijsM })
@@ -62,7 +76,9 @@ export function berekenOfferte(cfg) {
     if (!cfg.zonwering.screens[zijde]) continue
     if (zijde === 'achter' && !L.vrijstaand) continue
     const lengte = zijde === 'voor' || zijde === 'achter' ? L.W : L.zij.lengte
-    const aantal = zijde === 'voor' || zijde === 'achter' ? L.vakken.length : 1
+    const aantal = zijde === 'voor' || zijde === 'achter'
+      ? L.vakken.reduce((n, v) => n + screensPerVak(v.breedte), 0)
+      : screensPerVak(L.zij.lengte)
     regels.push({
       label: `Screens — ${ZIJDE_LABEL[zijde]}`,
       detail: `${aantal}× ritsscreen · doek ${doek.label.toLowerCase()}`,

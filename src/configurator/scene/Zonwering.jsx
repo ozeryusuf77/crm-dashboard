@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { useMemo, useRef } from 'react'
 import { useMat } from './materials.js'
 import { useAnim, klikbaar } from './anim.js'
-import { LIGGER_H, MUURPROFIEL_D } from '../layout.js'
+import { MUURPROFIEL_D } from '../layout.js'
 
 // Box waarvan de bovenkant (y) of achterkant (z) op de oorsprong ligt — handig om te schalen.
 function useAnkerBox(w, h, d, as) {
@@ -63,7 +63,7 @@ export function OnderdakZonwering({ L, uit, onToggle }) {
   const doekRef = useRef()
   const lijstRef = useRef()
   const z0 = L.zAchter + 0.12
-  const y0 = L.dakY(z0) - LIGGER_H - 0.06
+  const y0 = L.dakY(z0) - L.lH - 0.06
 
   useAnim(uit, t => {
     const s = Math.max(0.001, t * lengte)

@@ -2,9 +2,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import Scene from './scene/Scene.jsx'
 import Zijdekiezer, { WAND_KLEUR } from './Zijdekiezer.jsx'
 import {
-  STAPPEN, MODELLEN, GOOT_STIJLEN, MATEN, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN,
+  STAPPEN, MODELLEN, BEVESTIGINGEN, MAAT_LABELS, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN,
   OPEN_RICHTINGEN, SPIE_TYPES, DOEK_KLEUREN, ZONWERING, SPOTS_OPTIES, ZIJDES,
-  STANDAARD_CONFIG, TOON_PRIJZEN, vind,
+  STANDAARD_CONFIG, TOON_PRIJZEN, vind, maatGrenzen, begrensMaten,
 } from './options.js'
 import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels } from './layout.js'
 import { berekenOfferte, euro } from './pricing.js'
@@ -18,18 +18,25 @@ function leesUrlConfig() {
     const c = new URLSearchParams(window.location.search).get('c')
     if (!c) return null
     const json = JSON.parse(decodeURIComponent(escape(atob(c))))
-    const maat = k => {
-      const v = Number(json[k])
-      return Number.isFinite(v) ? Math.min(MATEN[k].max, Math.max(MATEN[k].min, v)) : MATEN[k].standaard
+    // Oude links: model was 'gevel'/'vrijstaand' en de goot een losse keuze.
+    if (json.model === 'gevel' || json.model === 'vrijstaand') {
+      json.bevestiging = json.model
+      json.model = json.goot === 'strak' ? 'linea' : 'klassiek'
     }
-    return {
+    if (!MODELLEN.some(m => m.id === json.model)) delete json.model
+    if (!BEVESTIGINGEN.some(b => b.id === json.bevestiging)) delete json.bevestiging
+    delete json.goot
+    const getal = (k, std) => (Number.isFinite(Number(json[k])) ? Number(json[k]) : std)
+    return begrensMaten({
       ...STANDAARD_CONFIG, ...json,
-      breedte: maat('breedte'), diepte: maat('diepte'), hoogte: maat('hoogte'),
+      breedte: getal('breedte', STANDAARD_CONFIG.breedte),
+      diepte: getal('diepte', STANDAARD_CONFIG.diepte),
+      hoogte: getal('hoogte', STANDAARD_CONFIG.hoogte),
       wanden: { ...STANDAARD_CONFIG.wanden, ...json.wanden },
       spie: { ...STANDAARD_CONFIG.spie, ...json.spie },
       zonwering: { ...STANDAARD_CONFIG.zonwering, ...json.zonwering, screens: { ...STANDAARD_CONFIG.zonwering.screens, ...json.zonwering?.screens } },
       extra: { ...STANDAARD_CONFIG.extra, ...json.extra },
-    }
+    })
   } catch {
     return null
   }
@@ -134,6 +141,68 @@ const STANDPUNTEN = [
   { id: 'binnen', label: 'Binnen' },
 ]
 
+// Zijaanzicht-icoon per model.
+function ModelSilhouet({ m }) {
+  const kleur = 'currentColor'
+  const plat = m.dakvorm === 'plat'
+  const post = plat ? 7 : 5
+  const xPost = m.overstek ? 66 : 80
+  return (
+    <svg viewBox="0 0 96 56" className="vc-model-svg" aria-hidden>
+      <rect x="2" y="4" width="6" height="50" fill="#c9b8a8" />
+      {plat ? (
+        <>
+          <rect x="8" y="12" width="82" height={9} rx="1.5" fill={kleur} />
+          <rect x={xPost - post / 2} y="21" width={post} height="33" fill={kleur} />
+        </>
+      ) : (
+        <>
+          <path d="M8 10 L84 20" stroke={kleur} strokeWidth="3.5" />
+          {m.goot === 'rond'
+            ? <path d="M80 18 h8 q4 0 3 5 q-1 5 -6 5 h-5 z" fill={kleur} />
+            : <rect x="79" y="17" width="10" height="10" rx="1" fill={kleur} />}
+          <rect x={xPost - post / 2} y="27" width={post} height="27" fill={kleur} />
+        </>
+      )}
+      <line x1="0" y1="54.5" x2="96" y2="54.5" stroke="#b9c2ca" strokeWidth="1" />
+    </svg>
+  )
+}
+
+// Bovenaanzicht van de voorzijde: delen, koppelingen en staanders.
+function KoppelSchema({ L }) {
+  const B = 300, x = v => 10 + ((v + L.W / 2) / L.W) * (B - 20)
+  return (
+    <svg viewBox={`0 0 ${B} 56`} className="vc-koppelschema" role="img"
+      aria-label={`${L.delen.length} ${L.delen.length === 1 ? 'deel' : 'delen'}, ${L.xStaanders.length} staanders aan de voorzijde`}>
+      {L.delen.map((d, i) => (
+        <g key={i}>
+          <rect x={x(d.x0) + 1} y="14" width={x(d.x1) - x(d.x0) - 2} height="14" rx="3"
+            fill={i % 2 ? '#d4ecf3' : '#e6f4f8'} stroke="#8fc6d6" />
+          <text x={(x(d.x0) + x(d.x1)) / 2} y="11" textAnchor="middle" className="vc-ks-tekst">
+            {L.delen.length > 1 ? `Deel ${i + 1} · ` : ''}{Math.round(d.breedte * 100)} cm
+          </text>
+        </g>
+      ))}
+      {L.koppelingen.map((k, i) => (
+        <g key={`k${i}`}>
+          <line x1={x(k)} y1="10" x2={x(k)} y2="32" stroke="#0a2342" strokeWidth="2" strokeDasharray="3 2" />
+          <text x={x(k)} y="52" textAnchor="middle" className="vc-ks-tekst sterk">koppeling</text>
+        </g>
+      ))}
+      {L.xStaanders.map((p, i) => <rect key={`s${i}`} x={x(p) - 3.5} y="30" width="7" height="7" fill="#333a40" />)}
+    </svg>
+  )
+}
+
+// Indicatieprijs van een model bij 400 × 300 cm met de huidige keuzes.
+function vanafPrijs(cfg, model) {
+  return berekenOfferte(begrensMaten({
+    ...STANDAARD_CONFIG, model, bevestiging: cfg.bevestiging, kleur: cfg.kleur, dak: cfg.dak, breedte: 400, diepte: 300,
+    extra: { ...STANDAARD_CONFIG.extra, montage: false },
+  })).totaal
+}
+
 // ─── Hoofdcomponent ───────────────────────────────────────────────────────────
 export default function VerandaConfigurator() {
   const [cfg, setCfg] = useState(() => leesUrlConfig() || STANDAARD_CONFIG)
@@ -168,9 +237,25 @@ export default function VerandaConfigurator() {
     if (eersteMaat.current) { eersteMaat.current = false; return }
     const t = setTimeout(() => setView(v => ({ naam: v.naam })), 400)
     return () => clearTimeout(t)
-  }, [cfg.breedte, cfg.diepte, cfg.hoogte, cfg.model])
+  }, [cfg.breedte, cfg.diepte, cfg.hoogte, cfg.model, cfg.bevestiging])
 
-  const zet = useCallback(patch => setCfg(c => ({ ...c, ...(typeof patch === 'function' ? patch(c) : patch) })), [])
+  // Elke wijziging blijft binnen de maatgrenzen van model + dak; bij aanpassing een melding.
+  const [melding, setMelding] = useState(null)
+  const zet = useCallback(patch => setCfg(c => {
+    const voorstel = { ...c, ...(typeof patch === 'function' ? patch(c) : patch) }
+    const n = begrensMaten(voorstel)
+    const gewijzigd = ['breedte', 'diepte', 'hoogte'].filter(k => n[k] !== voorstel[k] && voorstel[k] === c[k])
+    if (gewijzigd.length) {
+      const m = vind(MODELLEN, n.model), d = vind(DAKKEN, n.dak)
+      setMelding(gewijzigd.map(k => `${MAAT_LABELS[k]} aangepast naar ${n[k]} cm (grens voor ${m.label} met ${d.soort === 'glas' ? 'glazen' : 'polycarbonaat'} dak)`).join(' · '))
+    }
+    return n
+  }), [])
+  useEffect(() => {
+    if (!melding) return
+    const t = setTimeout(() => setMelding(null), 6000)
+    return () => clearTimeout(t)
+  }, [melding])
   const kijk = naam => setView({ naam })
 
   // Speel na een keuze kort de beweging af: eerst dicht/opgerold, daarna open/uitgerold.
@@ -288,37 +373,66 @@ export default function VerandaConfigurator() {
         <aside className="vc-paneel">
           <div className="vc-paneel-inhoud">
             <h2 className="vc-paneel-titel"><span>{stap + 1}.</span> {STAPPEN[stap].label}</h2>
+            {melding && <div className="vc-melding" role="status">{melding}</div>}
 
             {huidige === 'model' && (
               <>
-                <div className="vc-groep-titel">Type veranda</div>
-                <div className="vc-kaarten">
+                <div className="vc-groep-titel">Kies je veranda</div>
+                <div className="vc-modellen">
                   {MODELLEN.map(m => (
-                    <Kaart key={m.id} actief={cfg.model === m.id} titel={m.label} sub={m.sub}
-                      onClick={() => { zet({ model: m.id }); kijk('buiten') }} />
+                    <button key={m.id} type="button" className={`vc-model${cfg.model === m.id ? ' actief' : ''}`}
+                      onClick={() => { zet({ model: m.id }); kijk('buiten') }}>
+                      <ModelSilhouet m={m} />
+                      <span className="vc-model-naam">{m.label}</span>
+                      <span className="vc-model-sub">{m.sub}</span>
+                      {TOON_PRIJZEN && <span className="vc-model-prijs">vanaf {euro(vanafPrijs(cfg, m.id))}</span>}
+                    </button>
                   ))}
                 </div>
-                <div className="vc-groep-titel">Gootprofiel</div>
+                <div className="vc-info">
+                  <strong>{vind(MODELLEN, cfg.model).label}:</strong> {vind(MODELLEN, cfg.model).tekst}
+                  <ul className="vc-spec">
+                    <li>Uit één stuk tot {vind(MODELLEN, cfg.model).maxDeel} cm breed, daarboven in delen gekoppeld</li>
+                    <li>Diepte tot {vind(MODELLEN, cfg.model).diepte.poly[1]} cm (polycarbonaat) / {vind(MODELLEN, cfg.model).diepte.glas[1]} cm (glas)</li>
+                    <li>Staanders {Math.round(vind(MODELLEN, cfg.model).staander[0] * 1000)} × {Math.round(vind(MODELLEN, cfg.model).staander[1] * 1000)} mm{vind(MODELLEN, cfg.model).afvoer === 'staander' ? ', afvoer verborgen in de staander' : ''}</li>
+                  </ul>
+                </div>
+                <div className="vc-groep-titel">Plaatsing</div>
                 <div className="vc-kaarten">
-                  {GOOT_STIJLEN.map(g => (
-                    <Kaart key={g.id} actief={cfg.goot === g.id} titel={g.label} sub={g.sub}
-                      extra={TOON_PRIJZEN && g.prijs ? `+ ${euro(g.prijs)}` : null} onClick={() => zet({ goot: g.id })} />
+                  {BEVESTIGINGEN.map(b => (
+                    <Kaart key={b.id} actief={cfg.bevestiging === b.id} titel={b.label} sub={b.sub}
+                      extra={TOON_PRIJZEN && b.prijsFactor ? `+${Math.round((b.prijsFactor - 1) * 100)}%` : null}
+                      onClick={() => { zet({ bevestiging: b.id }); kijk('buiten') }} />
                   ))}
                 </div>
               </>
             )}
 
-            {huidige === 'maten' && (
-              <>
-                {Object.entries(MATEN).map(([k, m]) => (
-                  <Schuif key={k} label={m.label} waarde={cfg[k]} min={m.min} max={m.max} stap={m.stap}
-                    onChange={v => zet({ [k]: v })} />
-                ))}
-                <div className="vc-info">
-                  {L.xStaanders.length * (L.vrijstaand ? 2 : 1)} staanders · {L.vakken.length} {L.vakken.length === 1 ? 'vak' : 'vakken'} van {Math.round(L.vakken[0].breedte * 100)} cm · {L.xLiggers.length} liggers · {(L.oppervlak).toFixed(1).replace('.', ',')} m²
-                </div>
-              </>
-            )}
+            {huidige === 'maten' && (() => {
+              const g = maatGrenzen(cfg)
+              const m = vind(MODELLEN, cfg.model)
+              return (
+                <>
+                  {['breedte', 'diepte', 'hoogte'].map(k => (
+                    <Schuif key={k} label={MAAT_LABELS[k]} waarde={cfg[k]} min={g[k].min} max={g[k].max} stap={g[k].stap}
+                      onChange={v => zet({ [k]: v })} />
+                  ))}
+                  <KoppelSchema L={L} />
+                  {L.delen.length > 1 ? (
+                    <div className="vc-koppel">
+                      <strong>Deze veranda wordt in {L.delen.length} delen geleverd</strong>
+                      <p>De {m.label} is uit één stuk maximaal {m.maxDeel} cm breed. Bij {cfg.breedte} cm bestaat de voorzijde uit {L.delen.length} × {Math.round(L.deelB * 100)} cm. Goot en muurprofiel worden met een koppelstuk verbonden en onder elke koppeling staat een staander.</p>
+                    </div>
+                  ) : (
+                    <div className="vc-info">Uit één stuk tot {m.maxDeel} cm. Breder wordt de veranda automatisch in 2 delen gekoppeld.</div>
+                  )}
+                  <div className="vc-info">
+                    {L.xStaanders.length * (L.vrijstaand ? 2 : 1)} staanders · {L.vakken.length} {L.vakken.length === 1 ? 'vak' : 'vakken'} ({L.vakken.map(v => Math.round(v.breedte * 100)).join(' / ')} cm) · {L.liggers.length} liggers · {L.oppervlak.toFixed(1).replace('.', ',')} m²
+                    <br />Max {Math.round(L.overspanning * 100)} cm tussen staanders bij {L.soort === 'glas' ? 'een glazen' : 'een polycarbonaat'} dak van {cfg.diepte} cm diep.
+                  </div>
+                </>
+              )
+            })()}
 
             {huidige === 'kleur' && (
               <>
@@ -337,7 +451,9 @@ export default function VerandaConfigurator() {
               <>
                 {[...new Set(DAKKEN.map(d => d.groep))].map(groep => (
                   <div key={groep}>
-                    <div className="vc-groep-titel">{groep}</div>
+                    <div className="vc-groep-titel">
+                      {groep} <span className="vc-groep-noot">tot {vind(MODELLEN, cfg.model).diepte[DAKKEN.find(d => d.groep === groep).soort][1]} cm diep</span>
+                    </div>
                     <div className="vc-kaarten">
                       {DAKKEN.filter(d => d.groep === groep).map(d => (
                         <Kaart key={d.id} actief={cfg.dak === d.id} titel={d.label}
@@ -416,12 +532,14 @@ export default function VerandaConfigurator() {
                     onZet={v => setBediening(b => wandPad(geselecteerdeSlots.map(s => s.key))(b, v))} />
                 )}
 
-                {(zijde === 'links' || zijde === 'rechts') && (
+                {(zijde === 'links' || zijde === 'rechts') && (L.spieMogelijk ? (
                   <>
                     <div className="vc-groep-titel">Spie (driehoek boven de zijwand)</div>
                     <Chips opties={SPIE_TYPES} waarde={cfg.spie[zijde]} onChange={v => zet(c => ({ spie: { ...c.spie, [zijde]: v } }))} />
                   </>
-                )}
+                ) : (
+                  <div className="vc-info">Bij de {vind(MODELLEN, cfg.model).label} is geen spie nodig: het dak ligt vlak achter de omkasting, dus de zijwand sluit direct aan.</div>
+                ))}
               </>
             )}
 

@@ -1,13 +1,22 @@
 import * as THREE from 'three'
-import { useEffect, useMemo, useRef } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, SoftShadows, PerformanceMonitor } from '@react-three/drei'
 import { MaterialenProvider, useMaterialen } from './materials.js'
 import Veranda from './Veranda.jsx'
 import { Wand } from './Wanden.jsx'
 import { Ritsscreen, OnderdakZonwering, BovendakZonwering } from './Zonwering.jsx'
 import { Licht, Omgeving, Maatvoering } from './Omgeving.jsx'
-import { wandSlots, wandVoor, STAANDER } from '../layout.js'
+import { wandSlots, wandVoor, screensPerVak } from '../layout.js'
+
+const Effecten = lazy(() => import('./Effecten.jsx'))
+
+// Kwaliteitsniveau vóór het aanmaken van de Canvas bepalen (antialias kan daarna niet meer wisselen).
+// Met ?kwaliteit=laag of ?kwaliteit=hoog in de URL is het niveau te forceren.
+const GEFORCEERD = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kwaliteit') : null
+const MOBIEL = GEFORCEERD ? GEFORCEERD === 'laag' : typeof window !== 'undefined' && (
+  window.matchMedia?.('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4
+)
 
 // Camerastandpunten. "binnen" = op ooghoogte onder de veranda, rondkijken door te slepen.
 export function cameraStandpunt(naam, L) {
@@ -15,8 +24,14 @@ export function cameraStandpunt(naam, L) {
   const midden = new THREE.Vector3(0, 1.3, L.D * 0.45)
   switch (naam) {
     case 'voor':   return { pos: new THREE.Vector3(0, 1.7, L.D + r * 1.05), doel: new THREE.Vector3(0, 1.35, L.D * 0.4) }
-    case 'links':  return { pos: new THREE.Vector3(-L.W / 2 - r * 0.9, 1.9, L.D * 0.75 + 1.5), doel: midden }
-    case 'rechts': return { pos: new THREE.Vector3(L.W / 2 + r * 0.9, 1.9, L.D * 0.75 + 1.5), doel: midden }
+    case 'links':
+    case 'rechts': {
+      // Zijaanzicht: afstand op basis van de diepte, gericht op het dichtstbijzijnde uiteinde.
+      const s = naam === 'links' ? -1 : 1
+      const rz = Math.max(L.D * 1.6, 4) * 0.9 + 4
+      const doel = new THREE.Vector3(s * Math.max(0, L.W / 2 - 1.8), 1.3, L.D * 0.45)
+      return { pos: new THREE.Vector3(s * (L.W / 2 + rz * 0.85), 1.9, L.D * 0.75 + 1.5), doel }
+    }
     case 'achter': return { pos: new THREE.Vector3(r * 0.35, 2.2, -r * 0.75), doel: midden }
     case 'boven':  return { pos: new THREE.Vector3(0.001, r * 1.6, L.D / 2 + 1.2), doel: new THREE.Vector3(0, 0, L.D / 2) }
     case 'binnen': {
@@ -80,18 +95,28 @@ function Inhoud({ cfg, L, bediening, zetBediening, nacht, toonMaten, meubels, bi
   const plaatsing = slot => {
     if (slot.zijde === 'voor') {
       const v = L.vakken[slot.vak]
-      return { position: [v.midden, 0, L.zVoorStaander], rotation: [0, 0, 0], hoogte: L.Hf }
+      return { position: [v.midden, 0, L.zVoorStaander], rotation: [0, 0, 0], hoogte: L.wandH.voor }
     }
     if (slot.zijde === 'achter') {
       const v = L.vakken[slot.vak]
-      return { position: [v.midden, 0, L.zAchter], rotation: [0, Math.PI, 0], hoogte: L.achterBalkOnder }
+      return { position: [v.midden, 0, L.zAchter], rotation: [0, Math.PI, 0], hoogte: L.wandH.achter }
     }
     const s = slot.zijde === 'links' ? -1 : 1
-    return { position: [s * L.zij.x, 0, (L.zij.z0 + L.zij.z1) / 2], rotation: [0, s * Math.PI / 2, 0], hoogte: L.Hf - 0.06 }
+    return { position: [s * L.zij.x, 0, (L.zij.z0 + L.zij.z1) / 2], rotation: [0, s * Math.PI / 2, 0], hoogte: L.wandH.zij }
   }
 
   const sc = cfg.zonwering.screens
-  const screenOffset = STAANDER / 2 + 0.085
+  const voorOffset = L.sD / 2 + 0.085
+  const zijOffset = L.sB / 2 + 0.085
+  // Screens per vak; een vak breder dan 5,5 m krijgt meerdere screens naast elkaar.
+  const vakScreens = (zijde, z, rot, hoogte) => L.vakken.flatMap((v, i) => {
+    const n = screensPerVak(v.breedte)
+    const b = (v.breedte + L.sB) / n
+    return Array.from({ length: n }, (_, k) => (
+      <Ritsscreen key={`s${zijde}${i}-${k}`} lengte={b} hoogte={hoogte} neer={bediening.screens[zijde] ?? 0}
+        position={[v.x0 - L.sB / 2 + b * (k + 0.5), 0, z]} rotation={rot} onToggle={() => toggleScreen(zijde)} />
+    ))
+  })
 
   return (
     <>
@@ -105,17 +130,11 @@ function Inhoud({ cfg, L, bediening, zetBediening, nacht, toonMaten, meubels, bi
         )
       })}
 
-      {sc.voor && L.vakken.map((v, i) => (
-        <Ritsscreen key={`sv${i}`} lengte={v.breedte + STAANDER} hoogte={L.Hf} neer={bediening.screens.voor ?? 0}
-          position={[v.midden, 0, L.zVoorStaander + screenOffset]} onToggle={() => toggleScreen('voor')} />
-      ))}
-      {L.vrijstaand && sc.achter && L.vakken.map((v, i) => (
-        <Ritsscreen key={`sa${i}`} lengte={v.breedte + STAANDER} hoogte={L.achterBalkOnder} neer={bediening.screens.achter ?? 0}
-          position={[v.midden, 0, L.zAchter - screenOffset]} rotation={[0, Math.PI, 0]} onToggle={() => toggleScreen('achter')} />
-      ))}
+      {sc.voor && vakScreens('voor', L.zVoorStaander + voorOffset, [0, 0, 0], L.wandH.voor)}
+      {L.vrijstaand && sc.achter && vakScreens('achter', L.zAchter - voorOffset, [0, Math.PI, 0], L.wandH.achter)}
       {[['links', -1], ['rechts', 1]].map(([zijde, s]) => sc[zijde] && (
         <Ritsscreen key={`s-${zijde}`} lengte={L.zij.lengte} hoogte={L.Hf} neer={bediening.screens[zijde] ?? 0}
-          position={[s * (L.zij.x + screenOffset), 0, (L.zij.z0 + L.zij.z1) / 2]} rotation={[0, s * Math.PI / 2, 0]}
+          position={[s * (L.zij.x + zijOffset), 0, (L.zij.z0 + L.zij.z1) / 2]} rotation={[0, s * Math.PI / 2, 0]}
           onToggle={() => toggleScreen(zijde)} />
       ))}
 
@@ -136,17 +155,21 @@ function MetMaterialen({ cfg, children }) {
 export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, toonMaten, meubels }) {
   const controls = useRef()
   const binnen = view.naam === 'binnen'
+  const [hoog, setHoog] = useState(!MOBIEL)
   // Alleen het eerste standpunt; daarna verplaatst CameraRig de camera vloeiend.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const start = useMemo(() => cameraStandpunt(view.naam, L), [])
   return (
     <Canvas
-      shadows dpr={[1, 2]}
+      shadows dpr={hoog ? [1, 1.5] : [1, 1.25]}
       camera={{ fov: 40, near: 0.03, far: 400, position: start.pos.toArray() }}
-      gl={{ antialias: true }}
+      gl={{ antialias: MOBIEL, powerPreference: 'high-performance' }}
+      onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping }}
       onPointerMissed={() => { document.body.style.cursor = '' }}
     >
-      <Licht nacht={nacht} />
+      <PerformanceMonitor onDecline={() => setHoog(false)} flipflops={2} />
+      {hoog && <SoftShadows size={18} samples={10} focus={0.4} />}
+      <Licht nacht={nacht} L={L} hoog={hoog} />
       <MetMaterialen cfg={cfg}>
         <Inhoud cfg={cfg} L={L} bediening={bediening} zetBediening={zetBediening} nacht={nacht} toonMaten={toonMaten} meubels={meubels} binnen={binnen} />
       </MetMaterialen>
@@ -155,7 +178,7 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
         enableDamping dampingFactor={0.08}
         enablePan={!binnen} enableZoom={!binnen}
         rotateSpeed={binnen ? -0.32 : 0.6}
-        minDistance={binnen ? 0.05 : 2} maxDistance={binnen ? 0.2 : 40}
+        minDistance={binnen ? 0.05 : 2} maxDistance={binnen ? 0.2 : 45}
         minPolarAngle={binnen ? 0.25 * Math.PI : 0.05}
         maxPolarAngle={binnen ? 0.78 * Math.PI : Math.PI / 2 - 0.03}
         // Bij een aanbouw niet achter/in de woning kunnen draaien.
@@ -163,6 +186,7 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
         maxAzimuthAngle={binnen || L.vrijstaand ? Infinity : 0.47 * Math.PI}
       />
       <CameraRig view={view} L={L} controls={controls} />
+      {hoog && <Suspense fallback={null}><Effecten nacht={nacht} /></Suspense>}
     </Canvas>
   )
 }

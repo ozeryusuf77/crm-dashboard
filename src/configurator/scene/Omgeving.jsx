@@ -1,47 +1,82 @@
 // Omgeving rond de veranda: lucht, licht, tuin, terras, woning en meubels.
 import * as THREE from 'three'
-import { useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { Sky, Html, RoundedBox } from '@react-three/drei'
+import { Sky, Html, RoundedBox, Environment } from '@react-three/drei'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { baksteen, tegels, gras, hout } from './textures.js'
 
-// Reflecties voor glas en aluminium zonder externe HDR-bestanden.
-function Reflecties() {
+// Snelle reflecties zonder bestanden, als terugval terwijl de HDRI laadt.
+function RoomOmgeving({ nacht }) {
   const { gl, scene } = useThree()
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     scene.environment = env
-    return () => { scene.environment = null; env.dispose(); pmrem.dispose() }
-  }, [gl, scene])
+    scene.environmentIntensity = nacht ? 0.06 : 1
+    return () => { if (scene.environment === env) scene.environment = null; env.dispose(); pmrem.dispose() }
+  }, [gl, scene, nacht])
   return null
 }
 
-export function Licht({ nacht }) {
-  const scene = useThree(s => s.scene)
-  useEffect(() => { scene.environmentIntensity = nacht ? 0.06 : 1 }, [scene, nacht])
+// Echte buitenomgeving (HDRI) voor belichting en reflecties; gebundeld via npm,
+// per dagdeel een eigen lazy chunk. De achtergrond blijft de Sky-shader.
+const HDRI_DAG = {
+  park: () => import('@pmndrs/assets/hdri/park.exr'),
+  city: () => import('@pmndrs/assets/hdri/city.exr'),
+  sunset: () => import('@pmndrs/assets/hdri/sunset.exr'),
+  dawn: () => import('@pmndrs/assets/hdri/dawn.exr'),
+  apartment: () => import('@pmndrs/assets/hdri/apartment.exr'),
+}
+const TEST_HDRI = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('hdri') : null
+const HDRI = {
+  dag: HDRI_DAG[TEST_HDRI] || HDRI_DAG.city,
+  nacht: () => import('@pmndrs/assets/hdri/night.exr'),
+}
+
+function HdriOmgeving({ nacht }) {
+  const sleutel = nacht ? 'nacht' : 'dag'
+  const [bestanden, setBestanden] = useState({})
+  useEffect(() => {
+    if (bestanden[sleutel]) return
+    let actief = true
+    HDRI[sleutel]()
+      .then(m => { if (actief) setBestanden(b => ({ ...b, [sleutel]: m.default })) })
+      .catch(err => console.warn('HDRI laden mislukt, terugval op studio-omgeving', err))
+    return () => { actief = false }
+  }, [sleutel, bestanden])
+  const bestand = bestanden[sleutel]
+  if (!bestand) return <RoomOmgeving nacht={nacht} />
+  return (
+    <Suspense fallback={<RoomOmgeving nacht={nacht} />}>
+      <Environment files={bestand} background={false} environmentIntensity={nacht ? 0.18 : 0.9} />
+    </Suspense>
+  )
+}
+
+export function Licht({ nacht, L, hoog }) {
+  const half = Math.max(L.W, L.D) / 2 + 7
   return (
     <>
-      <Reflecties />
+      <HdriOmgeving nacht={nacht} />
       {nacht ? (
         <>
           <color attach="background" args={['#0d1626']} />
           <fog attach="fog" args={['#0d1626', 25, 70]} />
-          <hemisphereLight args={['#2b3d63', '#0b0d10', 0.25]} />
-          <directionalLight position={[-8, 12, 10]} intensity={0.18} color="#9fb4e0" />
+          <hemisphereLight args={['#2b3d63', '#0b0d10', 0.2]} />
+          <directionalLight position={[-8, 12, 10]} intensity={0.15} color="#9fb4e0" />
         </>
       ) : (
         <>
           <Sky distance={4500} sunPosition={[6, 4, 9]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
-          <fog attach="fog" args={['#cfdbe6', 40, 110]} />
-          <hemisphereLight args={['#dbe9ff', '#5b6b3c', 0.9]} />
+          <fog attach="fog" args={['#cfdbe6', 45, 120]} />
+          <hemisphereLight args={['#dbe9ff', '#5b6b3c', 0.45]} />
           <directionalLight
-            position={[8, 13, 11]} intensity={2.6} color="#fff4e2" castShadow
-            shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02}
-            shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14}
-            shadow-camera-near={1} shadow-camera-far={50}
+            position={[8, 13, 11]} intensity={2.4} color="#fff1dc" castShadow
+            shadow-mapSize={hoog ? [2048, 2048] : [1024, 1024]} shadow-bias={-0.0004} shadow-normalBias={0.02}
+            shadow-camera-left={-half} shadow-camera-right={half} shadow-camera-top={half} shadow-camera-bottom={-half}
+            shadow-camera-near={1} shadow-camera-far={60}
           />
         </>
       )}
