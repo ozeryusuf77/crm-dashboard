@@ -60,6 +60,9 @@ export default function Zijdekiezer({ cfg, L, zijde, vak, onKies }) {
       {L.xStaanders.map((x, i) => (
         <rect key={i} x={x0 + (x + L.W / 2) * s - 3.5} y={yVoor - 3.5} width={7} height={7} fill="#333a40" />
       ))}
+      {L.vrijstaand && L.xStaanders.map((x, i) => (
+        <rect key={`a${i}`} x={x0 + (x + L.W / 2) * s - 3.5} y={y0 + (L.zAchter / L.D) * d - 3.5} width={7} height={7} fill="#333a40" />
+      ))}
       <text x={B / 2} y={H - 6} textAnchor="middle" className="vc-zk-tekst" fill="#6b7480">Tuin</text>
     </svg>
   )

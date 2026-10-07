@@ -84,27 +84,26 @@ export function useMaterialen(cfg) {
     }
   }, [])
 
-  // Gepoedercoat aluminium: satijnglans met fijne structuur.
+  // Gepoedercoat aluminium: satijnglans met fijne structuur. Eén keer aanmaken en
+  // alleen de kleur bijwerken, zodat een kleurwissel geen shader-hercompilatie kost.
   const frame = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: kleurHex, metalness: 0.25, roughness: 0.48, envMapIntensity: 0.9,
+    metalness: 0.25, roughness: 0.48, envMapIntensity: 0.9,
     normalMap: vast.structuur, normalScale: new THREE.Vector2(0.18, 0.18),
     clearcoat: 0.25, clearcoatRoughness: 0.5,
-  }), [kleurHex, vast.structuur])
+  }), [vast.structuur])
 
   // Koppelstuk: zelfde kleur, iets donkerder zodat de naad zichtbaar is.
-  const koppel = useMemo(() => new THREE.MeshStandardMaterial({
-    color: new THREE.Color(kleurHex).multiplyScalar(0.8), metalness: 0.3, roughness: 0.45,
-  }), [kleurHex])
+  const koppel = useMemo(() => new THREE.MeshStandardMaterial({ metalness: 0.3, roughness: 0.45 }), [])
+  // Synchroon zetten (vóór de eerste render), niet pas in een effect.
+  frame.color.set(kleurHex)
+  koppel.color.set(kleurHex).multiplyScalar(0.8)
 
   const dak = useMemo(() => dakMateriaal(dakMat, vast.kanalen), [dakMat, vast.kanalen])
 
-  const doek = useMemo(() => plaat({
-    color: doekHex, roughness: 0.95, opacity: 0.78, alphaMap: vast.weefsel,
-  }), [doekHex, vast.weefsel])
-
-  const doekDicht = useMemo(() => new THREE.MeshStandardMaterial({
-    color: doekHex, roughness: 0.95, side: THREE.DoubleSide,
-  }), [doekHex])
+  const doek = useMemo(() => plaat({ roughness: 0.95, opacity: 0.78, alphaMap: vast.weefsel }), [vast.weefsel])
+  const doekDicht = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.95, side: THREE.DoubleSide }), [])
+  doek.color.set(doekHex)
+  doekDicht.color.set(doekHex)
 
   useEffect(() => () => { frame.dispose(); koppel.dispose() }, [frame, koppel])
   useEffect(() => () => dak.dispose(), [dak])

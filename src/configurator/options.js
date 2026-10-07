@@ -207,6 +207,10 @@ export function maatGrenzen(cfg) {
 // Houdt breedte/diepte/hoogte binnen de grenzen van model + dak.
 export function begrensMaten(cfg) {
   const g = maatGrenzen(cfg)
-  const clamp = (v, { min, max, stap }) => Math.min(max, Math.max(min, Math.round(v / stap) * stap))
+  const clamp = (v, { min, max, stap }) => {
+    const x = Number(v)
+    if (!Number.isFinite(x)) return min
+    return Math.min(max, Math.max(min, Math.round(x / stap) * stap))
+  }
   return { ...cfg, breedte: clamp(cfg.breedte, g.breedte), diepte: clamp(cfg.diepte, g.diepte), hoogte: clamp(cfg.hoogte, g.hoogte) }
 }

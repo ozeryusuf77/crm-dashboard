@@ -6,6 +6,14 @@ import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels
 
 const ZIJDE_LABEL = { voor: 'Voorzijde', links: 'Linkerzijde', rechts: 'Rechterzijde', achter: 'Achterzijde' }
 
+// Hoe de delen verbonden worden, afhankelijk van de plaatsing.
+export function koppelTekst(L) {
+  const balk = L.kubus ? 'voorbalk' : 'goot'
+  return L.vrijstaand
+    ? `koppelstuk in ${balk} voor en achter, staander voor en achter op elke koppeling`
+    : `koppelstuk in ${balk} en muurprofiel, staander onder elke koppeling`
+}
+
 export const euro = n =>
   new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 
@@ -31,7 +39,7 @@ export function berekenOfferte(cfg) {
   if (L.koppelingen.length) {
     regels.push({
       label: `Uitvoering in ${L.delen.length} delen`,
-      detail: `${L.delen.length} × ${Math.round(L.deelB * 100)} cm (max ${model.maxDeel} cm uit één stuk) · koppelstuk in goot en muurprofiel, staander op elke koppeling`,
+      detail: `${L.delen.length} × ${Math.round(L.deelB * 100)} cm (max ${model.maxDeel} cm uit één stuk) · ${koppelTekst(L)}`,
       prijs: L.koppelingen.length * EXTRA_PRIJZEN.koppelset,
     })
   }
@@ -49,7 +57,7 @@ export function berekenOfferte(cfg) {
     if (!w || w.type === 'open') continue
     const type = vind(WAND_TYPES, w.type)
     const glas = vind(GLAS_SOORTEN, w.glas)
-    const factor = w.type === 'dicht' ? 1 : (glas.prijsFactor || 1)
+    const factor = w.type === 'schuifwand' || w.type === 'vastglas' ? (glas.prijsFactor || 1) : 1
     const vakTekst = slot.zijde === 'voor' || slot.zijde === 'achter'
       ? (L.vakken.length > 1 ? ` vak ${slot.vak + 1}` : '') : ''
     let detail = `${Math.round(slot.lengte * 100)} cm`
@@ -77,7 +85,7 @@ export function berekenOfferte(cfg) {
     if (zijde === 'achter' && !L.vrijstaand) continue
     const lengte = zijde === 'voor' || zijde === 'achter' ? L.W : L.zij.lengte
     const aantal = zijde === 'voor' || zijde === 'achter'
-      ? L.vakken.reduce((n, v) => n + screensPerVak(v.breedte), 0)
+      ? L.vakken.reduce((n, v) => n + screensPerVak(v.breedte + L.sB), 0)
       : screensPerVak(L.zij.lengte)
     regels.push({
       label: `Screens — ${ZIJDE_LABEL[zijde]}`,

@@ -1,19 +1,21 @@
 // Zonwering: verticale ritsscreens, onderdak- en bovendakzonwering, allemaal
 // met animerend doek (0 = opgerold, 1 = volledig uitgerold).
 import * as THREE from 'three'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useMat } from './materials.js'
 import { useAnim, klikbaar } from './anim.js'
 import { MUURPROFIEL_D } from '../layout.js'
 
 // Box waarvan de bovenkant (y) of achterkant (z) op de oorsprong ligt — handig om te schalen.
 function useAnkerBox(w, h, d, as) {
-  return useMemo(() => {
-    const g = new THREE.BoxGeometry(w, h, d)
-    if (as === 'y') g.translate(0, -h / 2, 0)
-    if (as === 'z') g.translate(0, 0, d / 2)
-    return g
+  const g = useMemo(() => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    if (as === 'y') geo.translate(0, -h / 2, 0)
+    if (as === 'z') geo.translate(0, 0, d / 2)
+    return geo
   }, [w, h, d, as])
+  useEffect(() => () => g.dispose(), [g])
+  return g
 }
 
 // ─── Verticaal ritsscreen ─────────────────────────────────────────────────────
@@ -58,12 +60,19 @@ export function Ritsscreen({ lengte, hoogte, neer, onToggle, position, rotation 
 export function OnderdakZonwering({ L, uit, onToggle }) {
   const mat = useMat()
   const breedte = L.W - 0.16
-  const lengte = L.lengteDak / Math.cos(L.helling) - 0.2
   const doekGeom = useAnkerBox(breedte, 0.004, 1, 'z')
   const doekRef = useRef()
   const lijstRef = useRef()
   const z0 = L.zAchter + 0.12
   const y0 = L.dakY(z0) - L.lH - 0.06
+  // Eindpunt: goot-modellen net vóór de goot; Cubic tot de omkasting, net onder de
+  // liggers; Cubic XL vóór de draagbalk, zodat schuifwand en screens vrij blijven.
+  const zEind = L.overstek ? L.zVoorStaander - (L.sD + 0.02) / 2 - 0.03
+    : L.kubus ? L.D - L.gootB - 0.02
+    : z0 + L.lengteDak - 0.2 * Math.cos(L.helling)
+  const yEind = L.kubus ? L.dakY(zEind) - L.lH - 0.005 : y0 - (zEind - z0) * Math.tan(L.helling)
+  const hoek = Math.atan2(y0 - yEind, zEind - z0)
+  const lengte = Math.hypot(zEind - z0, y0 - yEind)
 
   useAnim(uit, t => {
     const s = Math.max(0.001, t * lengte)
@@ -79,7 +88,7 @@ export function OnderdakZonwering({ L, uit, onToggle }) {
       <mesh material={mat.frame} position={[0, y0, z0 - 0.04]} castShadow>
         <boxGeometry args={[L.W - 0.1, 0.09, 0.1]} />
       </mesh>
-      <group position={[0, y0, z0]} rotation={[L.helling, 0, 0]}>
+      <group position={[0, y0, z0]} rotation={[hoek, 0, 0]}>
         <mesh ref={doekRef} geometry={doekGeom} material={mat.doek} renderOrder={4} castShadow />
         <mesh ref={lijstRef} material={mat.frame}>
           <boxGeometry args={[breedte, 0.025, 0.04]} />
@@ -93,7 +102,8 @@ export function OnderdakZonwering({ L, uit, onToggle }) {
 // Cassette op het dak bij de gevel, doek over geleiders tot voorbij de goot.
 export function BovendakZonwering({ L, uit, onToggle }) {
   const mat = useMat()
-  const hoog = 0.17
+  // Bij Cubic ligt het dak in de omkasting: geleiders en doek moeten over de rand heen.
+  const hoog = L.kubus ? Math.max(0.17, L.yRand + 0.07 - L.dakY(L.zGoot)) : 0.17
   const uitval = 0.35
   const lengte = (L.lengteDak + uitval) / Math.cos(L.helling)
   const z0 = L.vrijstaand ? L.zAchter : MUURPROFIEL_D + 0.08

@@ -7,7 +7,7 @@ import {
   STANDAARD_CONFIG, TOON_PRIJZEN, vind, maatGrenzen, begrensMaten,
 } from './options.js'
 import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels } from './layout.js'
-import { berekenOfferte, euro } from './pricing.js'
+import { berekenOfferte, euro, koppelTekst } from './pricing.js'
 import './configurator.css'
 
 const BEDIENING_START = { open: {}, screens: {}, onderdak: 0, bovendak: 0, heater: 0 }
@@ -141,6 +141,27 @@ const STANDPUNTEN = [
   { id: 'binnen', label: 'Binnen' },
 ]
 
+// Per-vak wanden (sleutels "voor#1") hangen aan een vaknummer. Verandert de
+// vakindeling, dan krijgt elk nieuw vak de instelling van het oude vak dat op
+// dezelfde relatieve plek lag; vervallen sleutels worden opgeruimd.
+function herverdeelVakWanden(oud, nieuw) {
+  if (!Object.keys(nieuw.wanden).some(k => k.includes('#'))) return nieuw.wanden
+  const A = maakLayout(oud), B = maakLayout(nieuw)
+  const zelfde = A.vakken.length === B.vakken.length &&
+    A.vakken.every((v, i) => Math.abs(v.midden / A.W - B.vakken[i].midden / B.W) < 1e-3)
+  if (zelfde) return nieuw.wanden
+  const wanden = Object.fromEntries(Object.entries(nieuw.wanden).filter(([k]) => !k.includes('#')))
+  for (const z of ['voor', 'achter']) {
+    B.vakken.forEach((v, j) => {
+      const rel = v.midden / B.W
+      const i = A.vakken.reduce((best, o, k) =>
+        Math.abs(o.midden / A.W - rel) < Math.abs(A.vakken[best].midden / A.W - rel) ? k : best, 0)
+      if (nieuw.wanden[`${z}#${i}`]) wanden[`${z}#${j}`] = nieuw.wanden[`${z}#${i}`]
+    })
+  }
+  return wanden
+}
+
 // Zijaanzicht-icoon per model.
 function ModelSilhouet({ m }) {
   const kleur = 'currentColor'
@@ -195,6 +216,11 @@ function KoppelSchema({ L }) {
   )
 }
 
+// Factor van model, plaatsing en kleur op de m²-prijs (zoals in pricing.js).
+function prijsFactorFrame(cfg) {
+  return vind(MODELLEN, cfg.model).prijsFactor * (vind(BEVESTIGINGEN, cfg.bevestiging).prijsFactor || 1) * (vind(KLEUREN, cfg.kleur).prijsFactor || 1)
+}
+
 // Indicatieprijs van een model bij 400 × 300 cm met de huidige keuzes.
 function vanafPrijs(cfg, model) {
   return berekenOfferte(begrensMaten({
@@ -220,7 +246,11 @@ export default function VerandaConfigurator() {
   const timers = useRef([])
 
   useEffect(() => {
-    const t = setTimeout(() => window.history.replaceState(null, '', `?c=${naarUrl(cfg)}`), 300)
+    const t = setTimeout(() => {
+      const p = new URLSearchParams(window.location.search)
+      p.set('c', naarUrl(cfg))
+      window.history.replaceState(window.history.state, '', `?${p}${window.location.hash}`)
+    }, 300)
     return () => clearTimeout(t)
   }, [cfg])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
@@ -228,7 +258,7 @@ export default function VerandaConfigurator() {
   // Zijde/vak-keuze geldig houden als het model of het aantal vakken verandert.
   useEffect(() => {
     if (zijde === 'achter' && !L.vrijstaand) { setZijde('voor'); setVak('alle') }
-    if (vak !== 'alle' && vak >= L.vakken.length) setVak('alle')
+    if (vak !== 'alle' && (vak >= L.vakken.length || L.vakken.length <= 1)) setVak('alle')
   }, [L.vrijstaand, L.vakken.length, zijde, vak])
 
   // Camera opnieuw kaderen als de veranda groter/kleiner wordt (niet bij de eerste render).
@@ -244,6 +274,7 @@ export default function VerandaConfigurator() {
   const zet = useCallback(patch => setCfg(c => {
     const voorstel = { ...c, ...(typeof patch === 'function' ? patch(c) : patch) }
     const n = begrensMaten(voorstel)
+    n.wanden = herverdeelVakWanden(c, n)
     const gewijzigd = ['breedte', 'diepte', 'hoogte'].filter(k => n[k] !== voorstel[k] && voorstel[k] === c[k])
     if (gewijzigd.length) {
       const m = vind(MODELLEN, n.model), d = vind(DAKKEN, n.dak)
@@ -271,7 +302,10 @@ export default function VerandaConfigurator() {
   const slots = useMemo(() => wandSlots(L), [L])
   const zijdeHeeftVakken = zijde === 'voor' || zijde === 'achter'
   const geselecteerdeSlots = slots.filter(s => s.zijde === zijde && (!zijdeHeeftVakken || vak === 'alle' || s.vak === vak))
-  const actieveWand = zijdeHeeftVakken && vak !== 'alle' ? wandVoor(cfg, `${zijde}#${vak}`) : cfg.wanden[zijde]
+  const slotWanden = geselecteerdeSlots.map(s => wandVoor(cfg, s.key))
+  const actieveWand = zijdeHeeftVakken && vak !== 'alle'
+    ? wandVoor(cfg, `${zijde}#${vak}`)
+    : (slotWanden.length && slotWanden.every(w => w?.type === slotWanden[0]?.type) && slotWanden[0]) || cfg.wanden[zijde]
 
   const zetWand = patch => {
     const nieuw = { ...actieveWand, ...patch }
@@ -385,7 +419,7 @@ export default function VerandaConfigurator() {
                       <ModelSilhouet m={m} />
                       <span className="vc-model-naam">{m.label}</span>
                       <span className="vc-model-sub">{m.sub}</span>
-                      {TOON_PRIJZEN && <span className="vc-model-prijs">vanaf {euro(vanafPrijs(cfg, m.id))}</span>}
+                      {TOON_PRIJZEN && <span className="vc-model-prijs">4 × 3 m: {euro(vanafPrijs(cfg, m.id))}</span>}
                     </button>
                   ))}
                 </div>
@@ -421,7 +455,7 @@ export default function VerandaConfigurator() {
                   {L.delen.length > 1 ? (
                     <div className="vc-koppel">
                       <strong>Deze veranda wordt in {L.delen.length} delen geleverd</strong>
-                      <p>De {m.label} is uit één stuk maximaal {m.maxDeel} cm breed. Bij {cfg.breedte} cm bestaat de voorzijde uit {L.delen.length} × {Math.round(L.deelB * 100)} cm. Goot en muurprofiel worden met een koppelstuk verbonden en onder elke koppeling staat een staander.</p>
+                      <p>De {m.label} is uit één stuk maximaal {m.maxDeel} cm breed. Bij {cfg.breedte} cm bestaat de voorzijde uit {L.delen.length} × {Math.round(L.deelB * 100)} cm. Verbinding: {koppelTekst(L)}.</p>
                     </div>
                   ) : (
                     <div className="vc-info">Uit één stuk tot {m.maxDeel} cm. Breder wordt de veranda automatisch in 2 delen gekoppeld.</div>
@@ -457,7 +491,7 @@ export default function VerandaConfigurator() {
                     <div className="vc-kaarten">
                       {DAKKEN.filter(d => d.groep === groep).map(d => (
                         <Kaart key={d.id} actief={cfg.dak === d.id} titel={d.label}
-                          extra={TOON_PRIJZEN ? `${euro(d.prijsM2)}/m²` : null}
+                          extra={TOON_PRIJZEN ? `${euro(d.prijsM2 * prijsFactorFrame(cfg))}/m²` : null}
                           kleur={{ polyHelder: '#dcebf3', polyOpaal: '#f3f2ec', polyIr: '#eadccf', glasHelder: '#cfe7f0', glasMat: '#eef1f1', glasGetint: '#5d6a70' }[d.mat]}
                           onClick={() => zet({ dak: d.id })} />
                       ))}
@@ -494,7 +528,7 @@ export default function VerandaConfigurator() {
                     const lengte = geselecteerdeSlots.reduce((s, x) => s + Math.max(1, x.lengte), 0)
                     return (
                       <Kaart key={t.id} actief={actieveWand?.type === t.id} titel={t.label} sub={t.sub} kleur={WAND_KLEUR[t.id]}
-                        extra={TOON_PRIJZEN && t.prijsM ? `± ${euro(lengte * t.prijsM)}` : null}
+                        extra={TOON_PRIJZEN && t.prijsM ? `± ${euro(lengte * t.prijsM * ((t.id === 'schuifwand' || t.id === 'vastglas') ? (vind(GLAS_SOORTEN, actieveWand?.glas).prijsFactor || 1) : 1))}` : null}
                         onClick={() => zetWand({ type: t.id })} />
                     )
                   })}
@@ -569,7 +603,7 @@ export default function VerandaConfigurator() {
                   </div>
                 ))}
 
-                {(cfg.zonwering.onderdak || cfg.zonwering.bovendak || Object.values(cfg.zonwering.screens).some(Boolean)) && (
+                {(cfg.zonwering.onderdak || cfg.zonwering.bovendak || screenZijdes.length > 0) && (
                   <>
                     <div className="vc-groep-titel">Doekkleur</div>
                     <div className="vc-swatches">

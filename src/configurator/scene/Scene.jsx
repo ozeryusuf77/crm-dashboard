@@ -110,7 +110,7 @@ function Inhoud({ cfg, L, bediening, zetBediening, nacht, toonMaten, meubels, bi
   const zijOffset = L.sB / 2 + 0.085
   // Screens per vak; een vak breder dan 5,5 m krijgt meerdere screens naast elkaar.
   const vakScreens = (zijde, z, rot, hoogte) => L.vakken.flatMap((v, i) => {
-    const n = screensPerVak(v.breedte)
+    const n = screensPerVak(v.breedte + L.sB)
     const b = (v.breedte + L.sB) / n
     return Array.from({ length: n }, (_, k) => (
       <Ritsscreen key={`s${zijde}${i}-${k}`} lengte={b} hoogte={hoogte} neer={bediening.screens[zijde] ?? 0}
@@ -132,11 +132,16 @@ function Inhoud({ cfg, L, bediening, zetBediening, nacht, toonMaten, meubels, bi
 
       {sc.voor && vakScreens('voor', L.zVoorStaander + voorOffset, [0, 0, 0], L.wandH.voor)}
       {L.vrijstaand && sc.achter && vakScreens('achter', L.zAchter - voorOffset, [0, Math.PI, 0], L.wandH.achter)}
-      {[['links', -1], ['rechts', 1]].map(([zijde, s]) => sc[zijde] && (
-        <Ritsscreen key={`s-${zijde}`} lengte={L.zij.lengte} hoogte={L.Hf} neer={bediening.screens[zijde] ?? 0}
-          position={[s * (L.zij.x + zijOffset), 0, (L.zij.z0 + L.zij.z1) / 2]} rotation={[0, s * Math.PI / 2, 0]}
-          onToggle={() => toggleScreen(zijde)} />
-      ))}
+      {[['links', -1], ['rechts', 1]].flatMap(([zijde, s]) => {
+        if (!sc[zijde]) return []
+        const n = screensPerVak(L.zij.lengte)
+        const b = L.zij.lengte / n
+        return Array.from({ length: n }, (_, k) => (
+          <Ritsscreen key={`s-${zijde}-${k}`} lengte={b} hoogte={L.Hf} neer={bediening.screens[zijde] ?? 0}
+            position={[s * (L.zij.x + zijOffset), 0, L.zij.z0 + b * (k + 0.5)]} rotation={[0, s * Math.PI / 2, 0]}
+            onToggle={() => toggleScreen(zijde)} />
+        ))
+      })}
 
       {cfg.zonwering.onderdak && <OnderdakZonwering L={L} uit={bediening.onderdak} onToggle={() => toggle('onderdak')} />}
       {cfg.zonwering.bovendak && <BovendakZonwering L={L} uit={bediening.bovendak} onToggle={() => toggle('bovendak')} />}
@@ -163,7 +168,7 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
     <Canvas
       shadows dpr={hoog ? [1, 1.5] : [1, 1.25]}
       camera={{ fov: 40, near: 0.03, far: 400, position: start.pos.toArray() }}
-      gl={{ antialias: MOBIEL, powerPreference: 'high-performance' }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping }}
       onPointerMissed={() => { document.body.style.cursor = '' }}
     >

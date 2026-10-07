@@ -2,7 +2,7 @@
 // muurprofiel, liggers, dakplaten, spieën, koppelingen en hemelwaterafvoer,
 // plus de verlichting/heater die aan het frame hangen.
 import * as THREE from 'three'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useMat } from './materials.js'
 import { Balk } from './profiel.js'
@@ -55,6 +55,8 @@ function Goot({ L, y, achter = false }) {
     const g = new THREE.ExtrudeGeometry(vorm, { depth: d.breedte - 0.004, bevelEnabled: false, curveSegments: 16 })
     return { d, g }
   }), [vorm, L.delen])
+  useEffect(() => () => kop.dispose(), [kop])
+  useEffect(() => () => delen.forEach(({ g }) => g.dispose()), [delen])
 
   // Lokale x (profieldiepte) → wereld ±z, extrusie → wereld x.
   const z = achter ? L.gootB : L.D - L.gootB
@@ -70,10 +72,11 @@ function Goot({ L, y, achter = false }) {
         <mesh key={s} geometry={kop} material={mat.frame} rotation={rot} scale={[1.02, 1.02, 1]}
           position={achter ? [s < 0 ? -L.W / 2 - 0.005 : L.W / 2, y - 0.002, z] : [s < 0 ? -L.W / 2 : L.W / 2 + 0.005, y - 0.002, z]} />
       ))}
-      {/* Koppelstukken: iets grotere band over de naad */}
+      {/* Koppelstukken: iets grotere band (2 mm rondom) over de naad */}
       {L.koppelingen.map((x, i) => (
-        <mesh key={`k${i}`} geometry={kop} material={mat.koppel} rotation={rot} scale={[1.03, 1.03, 8]}
-          position={achter ? [x - 0.02, y - 0.003, z] : [x + 0.02, y - 0.003, z]} />
+        <mesh key={`k${i}`} geometry={kop} material={mat.koppel} rotation={rot}
+          scale={[(L.gootB + 0.004) / L.gootB, (L.gootH + 0.004) / L.gootH, 8]}
+          position={achter ? [x - 0.02, y - 0.002, z + 0.002] : [x + 0.02, y - 0.002, z - 0.002]} />
       ))}
     </group>
   )
@@ -104,6 +107,9 @@ function Muurprofiel({ L, yBoven, h }) {
         <Balk key={i} as="x" b={MUURPROFIEL_D} h={h} lengte={d.breedte - 0.004} r={0.005}
           position={[d.midden, yBoven - h / 2, MUURPROFIEL_D / 2]} mat={mat.frame} />
       ))}
+      {L.koppelingen.map((x, i) => (
+        <Box key={`k${i}`} args={[0.03, h + 0.004, MUURPROFIEL_D + 0.004]} position={[x, yBoven - h / 2, MUURPROFIEL_D / 2]} mat={mat.koppel} />
+      ))}
       <Box args={[L.W + 0.02, 0.12, 0.006]} position={[0, yBoven + 0.055, 0.004]} rotation={[0.08, 0, 0]} mat={mat.lood} schaduw={false} />
     </group>
   )
@@ -121,8 +127,10 @@ function Spie({ L, kant, type }) {
     s.lineTo(z1, L.dakY(z1) - L.lH - 0.005)
     s.lineTo(z0, L.dakY(z0) - L.lH - 0.005)
     s.lineTo(z0, onder)
-    return new THREE.ShapeGeometry(s)
+    // 8 mm dik, zodat de spie van binnen én buiten zichtbaar is (ook met FrontSide-materialen).
+    return new THREE.ExtrudeGeometry(s, { depth: 0.008, bevelEnabled: false }).translate(0, 0, -0.004)
   }, [L])
+  useEffect(() => () => geom.dispose(), [geom])
   const m = type === 'glas' ? mat.glasHelder : type === 'poly' ? mat.polySpie : mat.frame
   const x = kant * L.zij.x
   const zm = (L.zij.z0 + L.zij.z1) / 2
@@ -197,6 +205,8 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
   const mat = useMat()
   const { W, Hf } = L
   const lengteLigger = L.lengteDak / Math.cos(L.helling)
+  // Afdekprofiel stopt bij de binnenkant van de goot/voorbalk.
+  const lengteAfdek = lengteLigger - L.gootB / 2 / Math.cos(L.helling)
   const zMid = (L.zAchter + L.zGoot) / 2
   const dikte = L.soort === 'poly' ? 0.016 : 0.009
 
@@ -237,7 +247,8 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
         : <Goot L={L} y={Hf} />}
       {L.overstek > 0 && (
         // Draagbalk op de staanders; de liggers kragen 1 m uit tot de voorbalk.
-        <KubusBalk L={L} z={L.zVoorStaander} y0={Hf} h={L.gootH - 0.06} diep={L.sD + 0.02} />
+        // Bovenkant net onder de dakplaten: de liggers rusten erop en kragen uit.
+        <KubusBalk L={L} z={L.zVoorStaander} y0={Hf} h={L.dakY(L.zVoorStaander) - Hf - 0.02} diep={L.sD + 0.02} />
       )}
 
       {/* Achterzijde: muurprofiel of (vrijstaand) achterstaanders + goot/omkasting */}
@@ -268,7 +279,7 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
         // Draaipunt op de bovenkant van de ligger in het midden, zodat de helling klopt.
         <group key={`l${i}`} position={[l.x, L.dakY(zMid), zMid]} rotation={[L.helling, 0, 0]}>
           <Balk as="z" b={L.lB} h={L.lH} lengte={lengteLigger} r={0.004} position={[0, -L.lH / 2, 0]} mat={mat.frame} />
-          <Box args={[L.lB * 0.85, 0.012, lengteLigger]} position={[0, 0.011, 0]} mat={mat.frame} schaduw={false} />
+          <Box args={[L.lB * 0.85, 0.012, lengteAfdek]} position={[0, 0.011, -(lengteLigger - lengteAfdek) / 2]} mat={mat.frame} schaduw={false} />
         </group>
       ))}
 
@@ -281,7 +292,7 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
       ))}
       {/* Afsluitprofiel aan de gootzijde van de dakplaten */}
       {!L.kubus && (
-        <Box args={[W - 0.02, 0.022, 0.03]} position={[0, L.yDakVoor + 0.006, L.zGoot - 0.03]} rotation={[L.helling, 0, 0]} mat={mat.frame} schaduw={false} />
+        <Box args={[W - 0.02, 0.022, 0.03]} position={[0, L.dakY(L.D - L.gootB - 0.015) + 0.006, L.D - L.gootB - 0.015]} rotation={[L.helling, 0, 0]} mat={mat.frame} schaduw={false} />
       )}
 
       {/* Zijbalken (dragen spie / zijwand / screen) en spieën */}

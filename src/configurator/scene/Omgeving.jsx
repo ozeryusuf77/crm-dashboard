@@ -60,6 +60,8 @@ export function Licht({ nacht, L, hoog }) {
   return (
     <>
       <HdriOmgeving nacht={nacht} />
+      {/* Sky blijft gemount (geen nieuw shaderobject per dag/nacht-wissel). */}
+      <Sky visible={!nacht} distance={4500} sunPosition={[6, 4, 9]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
       {nacht ? (
         <>
           <color attach="background" args={['#0d1626']} />
@@ -69,10 +71,11 @@ export function Licht({ nacht, L, hoog }) {
         </>
       ) : (
         <>
-          <Sky distance={4500} sunPosition={[6, 4, 9]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
           <fog attach="fog" args={['#cfdbe6', 45, 120]} />
           <hemisphereLight args={['#dbe9ff', '#5b6b3c', 0.45]} />
           <directionalLight
+            // Nieuwe key bij kwaliteitswissel: three maakt de shadowmap alleen opnieuw aan voor een nieuw licht.
+            key={hoog ? 'zon-hoog' : 'zon-laag'}
             position={[8, 13, 11]} intensity={2.4} color="#fff1dc" castShadow
             shadow-mapSize={hoog ? [2048, 2048] : [1024, 1024]} shadow-bias={-0.0004} shadow-normalBias={0.02}
             shadow-camera-left={-half} shadow-camera-right={half} shadow-camera-top={half} shadow-camera-bottom={-half}
@@ -86,7 +89,7 @@ export function Licht({ nacht, L, hoog }) {
 
 // Bladerkruin: icosaëder met deterministisch verschoven hoekpunten voor een organische vorm.
 function useKruin(straal, seed) {
-  return useMemo(() => {
+  const geom = useMemo(() => {
     // Hoekpunten samenvoegen, anders krijgt elk vlak een eigen normaal (hoekig).
     const g = mergeVertices(new THREE.IcosahedronGeometry(straal, 3).deleteAttribute('normal').deleteAttribute('uv'))
     const p = g.attributes.position
@@ -100,6 +103,8 @@ function useKruin(straal, seed) {
     g.computeVertexNormals()
     return g
   }, [straal, seed])
+  useEffect(() => () => geom.dispose(), [geom])
+  return geom
 }
 
 function Boom({ position, schaal = 1, seed = 1 }) {
@@ -172,6 +177,7 @@ function Woning({ L, nacht }) {
     g.translate(0, 0, -(breedte + 0.3) / 2)
     return g
   }, [diep, nok, goot, breedte])
+  useEffect(() => () => dak.dispose(), [dak])
 
   const raamKleur = nacht ? '#ffcf86' : '#26323a'
   const raamEmissie = nacht ? 0.9 : 0

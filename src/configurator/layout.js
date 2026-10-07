@@ -76,7 +76,8 @@ export function maakLayout(cfg) {
   delen.forEach((d, i) => {
     const a = i === 0 ? -W / 2 + lB / 2 : d.x0 + lB / 2 + 0.002
     const b = i === nDelen - 1 ? W / 2 - lB / 2 : d.x1 - lB / 2 - 0.002
-    const n = Math.max(1, Math.round((b - a) / (PLAAT_BREEDTE + 0.02)))
+    // Zoveel platen dat geen plaat breder wordt dan PLAAT_BREEDTE (plaat = h.o.h. − ligger + 12 mm opleg).
+    const n = Math.max(1, Math.ceil((b - a) / (PLAAT_BREEDTE + lB - 0.012) - 1e-9))
     for (let k = 0; k <= n; k++) {
       const x = a + (k * (b - a)) / n
       liggers.push({ x, koppel: (k === 0 && i > 0) || (k === n && i < nDelen - 1) })
