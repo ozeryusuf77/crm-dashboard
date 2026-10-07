@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Scene from './scene/Scene.jsx'
+import { Foutgrens } from './scene/Foutgrens.jsx'
 import Zijdekiezer, { WAND_KLEUR } from './Zijdekiezer.jsx'
 import {
   STAPPEN, MODELLEN, BEVESTIGINGEN, MAAT_LABELS, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN,
@@ -361,10 +362,15 @@ export default function VerandaConfigurator() {
 
       <div className="vc-lijf">
         <section className="vc-podium">
-          <Suspense fallback={<div className="vc-laden">3D-model laden…</div>}>
-            <Scene cfg={cfg} L={L} view={view} bediening={bediening} zetBediening={setBediening}
-              nacht={nacht} toonMaten={toonMaten} meubels={meubels} />
-          </Suspense>
+          {/* Een fout in de 3D-weergave (bv. geen WebGL) laat de rest van de configurator werken. */}
+          <Foutgrens naam="3D-weergave" fallback={(
+            <div className="vc-laden">De 3D-weergave kan op dit apparaat niet worden geladen. Je kunt je veranda wel samenstellen en een offerte aanvragen.</div>
+          )}>
+            <Suspense fallback={<div className="vc-laden">3D-model laden…</div>}>
+              <Scene cfg={cfg} L={L} view={view} bediening={bediening} zetBediening={setBediening}
+                nacht={nacht} toonMaten={toonMaten} meubels={meubels} />
+            </Suspense>
+          </Foutgrens>
 
           <div className="vc-standpunten" role="toolbar" aria-label="Camerastandpunt">
             {STANDPUNTEN.map(s => (

@@ -8,6 +8,7 @@ import { Wand } from './Wanden.jsx'
 import { Ritsscreen, OnderdakZonwering, BovendakZonwering } from './Zonwering.jsx'
 import { Licht, Omgeving, Maatvoering } from './Omgeving.jsx'
 import { wandSlots, wandVoor, screensPerVak } from '../layout.js'
+import { Foutgrens } from './Foutgrens.jsx'
 
 const Effecten = lazy(() => import('./Effecten.jsx'))
 
@@ -191,7 +192,11 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
         maxAzimuthAngle={binnen || L.vrijstaand ? Infinity : 0.47 * Math.PI}
       />
       <CameraRig view={view} L={L} controls={controls} />
-      {hoog && <Suspense fallback={null}><Effecten nacht={nacht} /></Suspense>}
+      {hoog && (
+        <Foutgrens naam="Nabewerking">
+          <Suspense fallback={null}><Effecten nacht={nacht} /></Suspense>
+        </Foutgrens>
+      )}
     </Canvas>
   )
 }

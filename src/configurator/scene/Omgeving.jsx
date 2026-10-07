@@ -1,9 +1,10 @@
 // Omgeving rond de veranda: lucht, licht, tuin, terras, woning en meubels.
 import * as THREE from 'three'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { Sky, Html, RoundedBox, Environment } from '@react-three/drei'
+import { Sky, Html, RoundedBox } from '@react-three/drei'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { baksteen, tegels, gras, hout } from './textures.js'
 
@@ -35,24 +36,58 @@ const HDRI = {
   nacht: () => import('@pmndrs/assets/hdri/night.exr'),
 }
 
+// Decodeert de gebundelde EXR (data-URI) zelf, zonder fetch(): een strenge
+// Content-Security-Policy (inbedding, artifact-viewer) blokkeert fetch van data:-URI's.
+function exrUitDataUri(uri) {
+  const bin = atob(uri.slice(uri.indexOf(',') + 1))
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  const d = new EXRLoader().setDataType(THREE.HalfFloatType).parse(bytes.buffer)
+  const t = new THREE.DataTexture(d.data, d.width, d.height, d.format, d.type)
+  t.colorSpace = THREE.LinearSRGBColorSpace
+  t.minFilter = THREE.LinearFilter
+  t.magFilter = THREE.LinearFilter
+  t.generateMipmaps = false
+  t.flipY = false
+  t.mapping = THREE.EquirectangularReflectionMapping
+  t.needsUpdate = true
+  return t
+}
+
 function HdriOmgeving({ nacht }) {
+  const { gl, scene } = useThree()
   const sleutel = nacht ? 'nacht' : 'dag'
-  const [bestanden, setBestanden] = useState({})
+  const [omgevingen, setOmgevingen] = useState({})
+  const geladen = useRef({})
+
   useEffect(() => {
-    if (bestanden[sleutel]) return
+    if (omgevingen[sleutel]) return
     let actief = true
     HDRI[sleutel]()
-      .then(m => { if (actief) setBestanden(b => ({ ...b, [sleutel]: m.default })) })
+      .then(m => {
+        if (!actief) return
+        const bron = exrUitDataUri(m.default)
+        const pmrem = new THREE.PMREMGenerator(gl)
+        const env = pmrem.fromEquirectangular(bron).texture
+        bron.dispose()
+        pmrem.dispose()
+        geladen.current[sleutel] = env
+        setOmgevingen(o => ({ ...o, [sleutel]: env }))
+      })
       .catch(err => console.warn('HDRI laden mislukt, terugval op studio-omgeving', err))
     return () => { actief = false }
-  }, [sleutel, bestanden])
-  const bestand = bestanden[sleutel]
-  if (!bestand) return <RoomOmgeving nacht={nacht} />
-  return (
-    <Suspense fallback={<RoomOmgeving nacht={nacht} />}>
-      <Environment files={bestand} background={false} environmentIntensity={nacht ? 0.18 : 0.9} />
-    </Suspense>
-  )
+  }, [sleutel, omgevingen, gl])
+
+  const env = omgevingen[sleutel]
+  useEffect(() => {
+    if (!env) return
+    scene.environment = env
+    scene.environmentIntensity = nacht ? 0.18 : 0.9
+    return () => { if (scene.environment === env) scene.environment = null }
+  }, [env, scene, nacht])
+  useEffect(() => () => Object.values(geladen.current).forEach(t => t.dispose()), [])
+
+  return env ? null : <RoomOmgeving nacht={nacht} />
 }
 
 export function Licht({ nacht, L, hoog }) {
