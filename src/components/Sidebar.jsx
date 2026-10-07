@@ -75,6 +75,12 @@ export default function Sidebar({ page, navOpen, onNav, onToggleNav, escCount, e
             </div>
           )
         })}
+
+        <a className="nav-item" href="/configurator" target="_blank" rel="noopener" style={{ textDecoration: 'none' }}>
+          <span className="ch-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}>3D</span>
+          Veranda configurator
+          <span className="chevron">↗</span>
+        </a>
       </nav>
 
       <div className="sidebar-footer">

@@ -1,0 +1,152 @@
+/* Veranda configurator — alle klassen hebben het voorvoegsel vc- */
+.vc {
+  --vc-donker: #0a2342;
+  --vc-accent: #00a1c4;
+  --vc-accent-zacht: #e3f6fa;
+  --vc-rand: #e3e7eb;
+  --vc-tekst: #17212b;
+  --vc-zacht: #6b7480;
+  --vc-bg: #f5f7f9;
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--vc-bg); color: var(--vc-tekst);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+.vc button { font-family: inherit; }
+
+/* Kop met stappen */
+.vc-kop { display: flex; align-items: center; gap: 18px; padding: 10px 16px; background: var(--vc-donker); color: #fff; flex-shrink: 0; }
+.vc-merk { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.vc-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--vc-accent); display: grid; place-items: center; }
+.vc-merk-titel { font-weight: 650; font-size: 15px; line-height: 1.2; }
+.vc-merk-sub { font-size: 11px; color: #9fc3d6; }
+.vc-stappen { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+.vc-stappen::-webkit-scrollbar { display: none; }
+.vc-stap { display: flex; align-items: center; gap: 6px; white-space: nowrap; background: transparent; border: 0; color: #b8cbd8; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12.5px; }
+.vc-stap:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.vc-stap.actief { background: rgba(255,255,255,0.14); color: #fff; font-weight: 600; }
+.vc-stap-nr { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255,255,255,0.12); }
+.vc-stap.actief .vc-stap-nr, .vc-stap.klaar .vc-stap-nr { background: var(--vc-accent); color: #fff; }
+
+/* Indeling */
+.vc-lijf { flex: 1; display: flex; min-height: 0; }
+.vc-podium { flex: 1; position: relative; min-width: 0; background: #dfe8ef; }
+.vc-podium canvas { touch-action: none; }
+.vc-laden { position: absolute; inset: 0; display: grid; place-items: center; color: var(--vc-zacht); }
+.vc-paneel { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-left: 1px solid var(--vc-rand); }
+.vc-paneel-inhoud { flex: 1; overflow-y: auto; padding: 18px 18px 24px; }
+.vc-paneel-titel { font-size: 18px; font-weight: 650; margin-bottom: 14px; }
+.vc-paneel-titel span { color: var(--vc-accent); }
+
+/* Overlay-knoppen op het 3D-podium */
+.vc-standpunten { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; padding: 4px; background: rgba(255,255,255,0.92); border-radius: 12px; box-shadow: 0 4px 18px rgba(10,35,66,0.14); backdrop-filter: blur(6px); max-width: calc(100% - 24px); overflow-x: auto; }
+.vc-standpunt { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 7px 10px; border-radius: 9px; color: #39444f; cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+.vc-standpunt:hover { background: #eef2f5; }
+.vc-standpunt.actief { background: var(--vc-donker); color: #fff; }
+.vc-weergave { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; }
+.vc-pil { border: 1px solid rgba(10,35,66,0.12); background: rgba(255,255,255,0.94); color: #26323d; border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; box-shadow: 0 2px 8px rgba(10,35,66,0.08); white-space: nowrap; }
+.vc-pil:hover { background: #fff; border-color: var(--vc-accent); }
+.vc-pil.actief { background: var(--vc-donker); color: #fff; border-color: var(--vc-donker); }
+.vc-dock { position: absolute; left: 12px; bottom: 12px; max-width: min(460px, calc(100% - 24px)); background: rgba(255,255,255,0.94); border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px rgba(10,35,66,0.14); backdrop-filter: blur(6px); }
+.vc-dock-titel { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--vc-zacht); margin-bottom: 6px; }
+.vc-dock-knoppen { display: flex; flex-wrap: wrap; gap: 6px; }
+.vc-dock-hint { font-size: 11px; color: var(--vc-zacht); margin-top: 7px; }
+.vc-binnen-hint { position: absolute; bottom: 12px; right: 12px; background: rgba(10,35,66,0.82); color: #fff; padding: 7px 12px; border-radius: 999px; font-size: 12px; pointer-events: none; }
+.vc-maat { background: rgba(10,35,66,0.85); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none; user-select: none; }
+
+/* Panelen: kaarten, chips, schakelaars */
+.vc-groep-titel { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vc-zacht); margin: 18px 0 8px; }
+.vc-groep-titel:first-child { margin-top: 0; }
+.vc-kaarten { display: grid; gap: 8px; }
+.vc-kaart { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; padding: 11px 12px; border: 1.5px solid var(--vc-rand); background: #fff; border-radius: 11px; cursor: pointer; color: inherit; transition: border-color .15s, background .15s; }
+.vc-kaart:hover { border-color: #b9c4ce; }
+.vc-kaart.actief { border-color: var(--vc-accent); background: var(--vc-accent-zacht); box-shadow: 0 0 0 3px rgba(0,161,196,0.12); }
+.vc-kaart-kleur { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.12); }
+.vc-kaart-tekst { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.vc-kaart-titel { font-weight: 600; font-size: 13.5px; }
+.vc-kaart-sub { font-size: 12px; color: var(--vc-zacht); }
+.vc-kaart-extra { font-size: 12px; font-weight: 600; color: var(--vc-donker); white-space: nowrap; }
+.vc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.vc-chip { border: 1.5px solid var(--vc-rand); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: inherit; }
+.vc-chip:hover { border-color: #b9c4ce; }
+.vc-chip.actief { border-color: var(--vc-accent); background: var(--vc-accent-zacht); font-weight: 600; }
+.vc-chip.klein { padding: 4px 10px; font-size: 12px; }
+.vc-zijdes { margin-top: 10px; }
+.vc-schakel { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f0f2f4; cursor: pointer; position: relative; }
+.vc-schakel-label { display: block; font-weight: 600; font-size: 13.5px; }
+.vc-schakel-sub { display: block; font-size: 12px; color: var(--vc-zacht); margin-top: 2px; }
+.vc-schakel input { position: absolute; opacity: 0; pointer-events: none; }
+.vc-schakel-knop { width: 40px; height: 23px; border-radius: 999px; background: #cfd6dd; position: relative; flex-shrink: 0; transition: background .15s; }
+.vc-schakel-knop::after { content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform .15s; }
+.vc-schakel input:checked + .vc-schakel-knop { background: var(--vc-accent); }
+.vc-schakel input:checked + .vc-schakel-knop::after { transform: translateX(17px); }
+.vc-schakel input:focus-visible + .vc-schakel-knop { outline: 2px solid var(--vc-accent); outline-offset: 2px; }
+
+.vc-schuif { margin-bottom: 18px; }
+.vc-schuif-kop { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+.vc-schuif-invoer { display: flex; align-items: center; gap: 4px; font-weight: 400; color: var(--vc-zacht); font-size: 12px; }
+.vc-schuif-invoer input { width: 70px; padding: 5px 7px; border: 1.5px solid var(--vc-rand); border-radius: 7px; font-size: 13px; text-align: right; font-weight: 600; color: var(--vc-tekst); }
+.vc input[type=range] { width: 100%; accent-color: var(--vc-accent); }
+.vc-schuif-grens { display: flex; justify-content: space-between; font-size: 11px; color: #9aa3ad; }
+.vc-bed { background: #f5f8fa; border-radius: 10px; padding: 9px 11px; margin: 4px 0 10px; }
+.vc-bed-kop { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+.vc-bed-knop { border: 0; background: var(--vc-donker); color: #fff; border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+.vc-info { font-size: 12px; color: var(--vc-zacht); background: #f5f8fa; padding: 9px 11px; border-radius: 9px; margin: 6px 0 10px; line-height: 1.45; }
+.vc-uitleg { font-size: 12.5px; color: var(--vc-zacht); line-height: 1.5; margin-bottom: 10px; }
+.vc-link { border: 0; background: none; color: #0784a3; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 10px 0 0; }
+.vc-link:hover { text-decoration: underline; }
+.vc-zijdekiezer { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
+.vc-zk-tekst { font-size: 9px; font-weight: 600; }
+.vc-legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; font-size: 11px; color: var(--vc-zacht); margin: 6px 0 4px; }
+.vc-legenda i { display: inline-block; width: 10px; height: 4px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.vc-swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.vc-swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1.5px solid transparent; background: none; border-radius: 9px; padding: 6px 2px; cursor: pointer; font-size: 11px; color: inherit; }
+.vc-swatch i { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+.vc-swatch.actief { border-color: var(--vc-accent); background: var(--vc-accent-zacht); }
+
+/* Voet met prijs en navigatie */
+.vc-voet { border-top: 1px solid var(--vc-rand); padding: 12px 18px; display: flex; align-items: center; gap: 12px; background: #fff; }
+.vc-prijs { flex: 1; display: flex; flex-direction: column; }
+.vc-prijs span { font-size: 11px; color: var(--vc-zacht); }
+.vc-prijs strong { font-size: 20px; color: var(--vc-donker); }
+.vc-nav { display: flex; gap: 6px; }
+.vc-knop { border: 0; background: var(--vc-accent); color: #fff; font-weight: 600; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13.5px; }
+.vc-knop:hover { filter: brightness(1.05); }
+.vc-knop:disabled { opacity: 0.45; cursor: default; }
+.vc-knop.secundair { background: #eef2f5; color: var(--vc-tekst); }
+.vc-knop.breed { width: 100%; margin-top: 4px; }
+
+/* Offerte */
+.vc-overzicht { border: 1px solid var(--vc-rand); border-radius: 11px; overflow: hidden; }
+.vc-regel { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border-bottom: 1px solid #f0f2f4; }
+.vc-regel:last-child { border-bottom: 0; }
+.vc-regel-label { font-weight: 600; font-size: 13px; }
+.vc-regel-detail { font-size: 11.5px; color: var(--vc-zacht); margin-top: 2px; }
+.vc-regel-prijs { font-weight: 600; white-space: nowrap; font-size: 13px; }
+.vc-regel.totaal { background: var(--vc-accent-zacht); }
+.vc-regel.totaal .vc-regel-prijs { font-size: 16px; color: var(--vc-donker); }
+.vc-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.vc-form input, .vc-form textarea { width: 100%; padding: 10px 11px; border: 1.5px solid var(--vc-rand); border-radius: 9px; font: inherit; color: inherit; resize: vertical; }
+.vc-form input:focus, .vc-form textarea:focus { outline: none; border-color: var(--vc-accent); }
+.vc-form-rij { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vc-fout { background: #fee2e2; color: #991b1b; padding: 9px 11px; border-radius: 9px; font-size: 12.5px; }
+.vc-succes { margin-top: 14px; background: #e7f7ee; color: #14532d; padding: 14px; border-radius: 11px; line-height: 1.5; }
+.vc-succes p { margin-top: 4px; font-size: 13px; }
+
+/* Mobiel: 3D boven, keuzes eronder */
+@media (max-width: 860px) {
+  .vc-kop { padding: 8px 12px; gap: 10px; }
+  .vc-merk-sub { display: none; }
+  .vc-stappen { justify-content: flex-start; }
+  .vc-lijf { flex-direction: column; }
+  .vc-podium { flex: none; height: 48vh; }
+  .vc-paneel { width: 100%; flex: 1; min-height: 0; border-left: 0; border-top: 1px solid var(--vc-rand); }
+  .vc-paneel-inhoud { padding: 14px 16px 18px; }
+  .vc-standpunt span { display: none; }
+  .vc-weergave { top: auto; bottom: 12px; flex-direction: row; }
+  .vc-dock { bottom: auto; top: 60px; padding: 8px 10px; }
+  .vc-dock-hint { display: none; }
+  .vc-binnen-hint { display: none; }
+  .vc-voet { padding: 10px 16px; }
+}
