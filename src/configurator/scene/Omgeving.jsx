@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
 import { Sky, Html, RoundedBox } from '@react-three/drei'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { baksteen, tegels, gras, hout } from './textures.js'
+import { useFotoTexturen, laadAfbeelding } from './fotoTexturen.js'
+import { MOBIEL } from './kwaliteit.js'
 
-// Snelle reflecties zonder bestanden, als terugval terwijl de HDRI laadt.
+// Snelle reflecties zonder bestanden, als terugval terwijl de foto-lucht laadt.
 function RoomOmgeving({ nacht }) {
   const { gl, scene } = useThree()
   useEffect(() => {
@@ -21,97 +22,92 @@ function RoomOmgeving({ nacht }) {
   return null
 }
 
-// Echte buitenomgeving (HDRI) voor belichting en reflecties; gebundeld via npm,
-// per dagdeel een eigen lazy chunk. De achtergrond blijft de Sky-shader.
-const HDRI_DAG = {
-  park: () => import('@pmndrs/assets/hdri/park.exr'),
-  city: () => import('@pmndrs/assets/hdri/city.exr'),
-  sunset: () => import('@pmndrs/assets/hdri/sunset.exr'),
-  dawn: () => import('@pmndrs/assets/hdri/dawn.exr'),
-  apartment: () => import('@pmndrs/assets/hdri/apartment.exr'),
-}
-const TEST_HDRI = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('hdri') : null
-const HDRI = {
-  dag: HDRI_DAG[TEST_HDRI] || HDRI_DAG.city,
-  nacht: () => import('@pmndrs/assets/hdri/night.exr'),
-}
-
-// Decodeert de gebundelde EXR (data-URI) zelf, zonder fetch(): een strenge
-// Content-Security-Policy (inbedding, artifact-viewer) blokkeert fetch van data:-URI's.
-function exrUitDataUri(uri) {
-  const bin = atob(uri.slice(uri.indexOf(',') + 1))
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  const d = new EXRLoader().setDataType(THREE.HalfFloatType).parse(bytes.buffer)
-  const t = new THREE.DataTexture(d.data, d.width, d.height, d.format, d.type)
-  t.colorSpace = THREE.LinearSRGBColorSpace
-  t.minFilter = THREE.LinearFilter
-  t.magFilter = THREE.LinearFilter
-  t.generateMipmaps = false
-  t.flipY = false
-  t.mapping = THREE.EquirectangularReflectionMapping
-  t.needsUpdate = true
-  return t
+// Echte lucht (CC0, Poly Haven, zie assets/BRONNEN.md): een foto als achtergrond en een
+// kleinere versie met grond eronder voor belichting en reflecties. Beide laden als <img>,
+// dus ook onder een strenge CSP. De zon (dag) en maan (nacht) in de foto zijn gedraaid naar
+// de kant van het directionele licht, zodat schaduwen en lucht kloppen.
+const LUCHT = import.meta.glob('../assets/lucht/*.jpg', { eager: true, query: '?url', import: 'default' })
+const ZON = [8, 13, 11]
+const MAAN = [-8, 12, 10]
+// u-coördinaat van zon/maan in de equirect-foto's (gemeten in de HDRI's), omgerekend naar
+// de y-rotatie waarmee die richting op het licht valt (three: azimut = atan2(z, x)).
+const draai = (u, licht) => (u - 0.5) * 2 * Math.PI - Math.atan2(licht[2], licht[0])
+const DAGDELEN = {
+  dag: { achtergrond: MOBIEL ? 'dag_2k' : 'dag', rotatie: draai(0.5951, ZON), omgeving: 1.9, mist: '#9ca1b2' },
+  nacht: { achtergrond: 'nacht', rotatie: draai(0.5991, MAAN), omgeving: 3, mist: '#08131d' },
 }
 
-function HdriOmgeving({ nacht }) {
-  const { gl, scene } = useThree()
-  const sleutel = nacht ? 'nacht' : 'dag'
-  const [omgevingen, setOmgevingen] = useState({})
-  const geladen = useRef({})
-
+function useFotoLucht(dagdeel) {
+  const gl = useThree(s => s.gl)
+  const [lucht, setLucht] = useState({})
+  const gemaakt = useRef([])
   useEffect(() => {
-    if (omgevingen[sleutel]) return
+    if (lucht[dagdeel]) return
     let actief = true
-    HDRI[sleutel]()
-      .then(m => {
+    const url = naam => LUCHT[`../assets/lucht/${naam}.jpg`]
+    Promise.all([laadAfbeelding(url(DAGDELEN[dagdeel].achtergrond), true), laadAfbeelding(url(`${dagdeel}_omgeving`), true)])
+      .then(([foto, omgeving]) => {
         if (!actief) return
-        const bron = exrUitDataUri(m.default)
+        const achtergrond = foto.clone()
+        achtergrond.mapping = THREE.EquirectangularReflectionMapping
+        const bron = omgeving.clone()
+        bron.mapping = THREE.EquirectangularReflectionMapping
         const pmrem = new THREE.PMREMGenerator(gl)
         const env = pmrem.fromEquirectangular(bron).texture
-        bron.dispose()
         pmrem.dispose()
-        geladen.current[sleutel] = env
-        setOmgevingen(o => ({ ...o, [sleutel]: env }))
+        bron.dispose()
+        gemaakt.current.push(achtergrond, env)
+        setLucht(l => ({ ...l, [dagdeel]: { achtergrond, env } }))
       })
-      .catch(err => console.warn('HDRI laden mislukt, terugval op studio-omgeving', err))
+      .catch(err => console.warn('Foto-lucht laden mislukt, terugval op studio-omgeving', err))
     return () => { actief = false }
-  }, [sleutel, omgevingen, gl])
-
-  const env = omgevingen[sleutel]
-  useEffect(() => {
-    if (!env) return
-    scene.environment = env
-    scene.environmentIntensity = nacht ? 0.18 : 0.9
-    return () => { if (scene.environment === env) scene.environment = null }
-  }, [env, scene, nacht])
-  useEffect(() => () => Object.values(geladen.current).forEach(t => t.dispose()), [])
-
-  return env ? null : <RoomOmgeving nacht={nacht} />
+  }, [dagdeel, lucht, gl])
+  useEffect(() => () => gemaakt.current.forEach(t => t.dispose()), [])
+  return lucht[dagdeel]
 }
 
 export function Licht({ nacht, L, hoog }) {
   const half = Math.max(L.W, L.D) / 2 + 7
+  const dagdeel = nacht ? 'nacht' : 'dag'
+  const d = DAGDELEN[dagdeel]
+  const lucht = useFotoLucht(dagdeel)
+  const scene = useThree(s => s.scene)
+  useEffect(() => {
+    if (!lucht) return
+    scene.backgroundRotation.set(0, d.rotatie, 0)
+    scene.environmentRotation.set(0, d.rotatie, 0)
+    scene.environmentIntensity = d.omgeving
+  }, [lucht, scene, d])
+
   return (
     <>
-      <HdriOmgeving nacht={nacht} />
-      {/* Sky blijft gemount (geen nieuw shaderobject per dag/nacht-wissel). */}
-      <Sky visible={!nacht} distance={4500} sunPosition={[6, 4, 9]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
-      {nacht ? (
+      {lucht ? (
         <>
-          <color attach="background" args={['#0d1626']} />
-          <fog attach="fog" args={['#0d1626', 25, 70]} />
-          <hemisphereLight args={['#2b3d63', '#0b0d10', 0.2]} />
-          <directionalLight position={[-8, 12, 10]} intensity={0.15} color="#9fb4e0" />
+          <primitive key={`lucht-${dagdeel}`} object={lucht.achtergrond} attach="background" />
+          <primitive key={`omgeving-${dagdeel}`} object={lucht.env} attach="environment" />
         </>
       ) : (
         <>
-          <fog attach="fog" args={['#cfdbe6', 45, 120]} />
+          <RoomOmgeving nacht={nacht} />
+          {nacht && <color attach="background" args={['#0d1626']} />}
+        </>
+      )}
+      {/* Sky (terugval zolang de foto laadt) blijft gemount: geen nieuw shaderobject per wissel. */}
+      <Sky visible={!nacht && !lucht} distance={4500} sunPosition={ZON} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
+      {nacht ? (
+        <>
+          <fog attach="fog" args={[d.mist, 25, 70]} />
+          <hemisphereLight args={['#2b3d63', '#0b0d10', 0.2]} />
+          <directionalLight position={MAAN} intensity={0.15} color="#9fb4e0" />
+        </>
+      ) : (
+        <>
+          <fog attach="fog" args={[d.mist, 40, 170]} />
           <hemisphereLight args={['#dbe9ff', '#5b6b3c', 0.45]} />
           <directionalLight
             // Nieuwe key bij kwaliteitswissel: three maakt de shadowmap alleen opnieuw aan voor een nieuw licht.
             key={hoog ? 'zon-hoog' : 'zon-laag'}
-            position={[8, 13, 11]} intensity={2.4} color="#fff1dc" castShadow
+            position={ZON} intensity={2.4} color="#fff1dc" castShadow
             shadow-mapSize={hoog ? [2048, 2048] : [1024, 1024]} shadow-bias={-0.0004} shadow-normalBias={0.02}
             shadow-camera-left={-half} shadow-camera-right={half} shadow-camera-top={half} shadow-camera-bottom={-half}
             shadow-camera-near={1} shadow-camera-far={60}
@@ -189,54 +185,124 @@ function Plantenbak({ position }) {
   )
 }
 
+// Materiaal met echte foto-textuur zodra die geladen is, anders de procedurele terugval.
+// De key forceert een nieuw materiaal (en shader) als de set binnenkomt.
+function FotoMateriaal({ foto, terugval, ao = 0.8, ...props }) {
+  return foto
+    ? <meshStandardMaterial key="foto" {...props} {...foto} roughness={1} aoMapIntensity={ao} />
+    : <meshStandardMaterial key="terugval" {...props} {...terugval} />
+}
+
+const WIT = '#ecebe6'
+
 function Woning({ L, nacht }) {
   const steen = useMemo(() => baksteen(), [])
   const breedte = Math.max(L.W + 5, 10)
   const goot = Math.max(L.yDakAchter + 2.9, 5.8)
   const diep = 9
-  const nok = goot + 3.4
+  // Zadeldak met de nok evenwijdig aan de achtergevel en 40 cm overstek bij de goten.
+  const nokH = 3.4
+  const overstek = 0.4
+  const run = diep / 2 + overstek
+  const helling = Math.atan2(nokH, run)
+  const dakL = Math.hypot(run, nokH) + 0.06
+  const dakB = breedte + 0.3
+  const dikte = 0.05
+
+  // Herhalingen in meters: baksteen 1,4 m, dakpannen 2,4 × 1,8 m per herhaling.
+  const gevel = useFotoTexturen('baksteen', [breedte / 1.4, goot / 1.4])
+  const zijgevel = useFotoTexturen('baksteen', [diep / 1.4, goot / 1.4])
+  // uv van ExtrudeGeometry is al in meters; verschoven zodat de lagen doorlopen vanaf de muur.
+  const topgevel = useFotoTexturen('baksteen', [1 / 1.4, 1 / 1.4], [0, (goot / 1.4) % 1])
+  const pannen = useFotoTexturen('dakpannen', [dakB / 2.4, dakL / 1.8])
   useEffect(() => {
     steen.map.repeat.set(breedte / 0.88, goot / 0.9)
     steen.normalMap.repeat.copy(steen.map.repeat)
   }, [steen, breedte, goot])
   useEffect(() => () => { steen.map.dispose(); steen.normalMap.dispose() }, [steen])
+  const steenTerugval = { map: steen.map, normalMap: steen.normalMap, normalScale: [0.8, 0.8], roughness: 0.92 }
 
-  // Zadeldak met de nok evenwijdig aan de achtergevel.
-  const dak = useMemo(() => {
+  // Topgevels: de muur loopt door tot onder de dakvlakken (vijfhoek), zodat er onder de
+  // overstek geen kier tussen muur en dak zit.
+  const top = useMemo(() => {
+    const bovenRand = nokH * (overstek / run) - 0.01
     const s = new THREE.Shape()
-    s.moveTo(-diep / 2 - 0.4, 0)
-    s.lineTo(diep / 2 + 0.4, 0)
-    s.lineTo(0, nok - goot)
-    s.lineTo(-diep / 2 - 0.4, 0)
-    const g = new THREE.ExtrudeGeometry(s, { depth: breedte + 0.3, bevelEnabled: false })
-    g.translate(0, 0, -(breedte + 0.3) / 2)
+    s.moveTo(-diep / 2, 0)
+    s.lineTo(diep / 2, 0)
+    s.lineTo(diep / 2, bovenRand)
+    s.lineTo(0, nokH - 0.01)
+    s.lineTo(-diep / 2, bovenRand)
+    s.lineTo(-diep / 2, 0)
+    const g = new THREE.ExtrudeGeometry(s, { depth: breedte, bevelEnabled: false })
+    g.translate(0, 0, -breedte / 2)
     return g
-  }, [diep, nok, goot, breedte])
-  useEffect(() => () => dak.dispose(), [dak])
+  }, [diep, nokH, overstek, run, breedte])
+  useEffect(() => () => top.dispose(), [top])
 
   const raamKleur = nacht ? '#ffcf86' : '#26323a'
   const raamEmissie = nacht ? 0.9 : 0
   const pui = Math.min(L.W - 1, 3.6)
   const kozijn = '#2b2e31'
 
+  // Eén dakvlak (in het assenstelsel met de nok boven de oorsprong); het achterste is gespiegeld.
+  const n = [Math.cos(helling), Math.sin(helling)]
+  const dakvlak = r => (
+    <group key={r} rotation={[0, r, 0]}>
+      <group position={[0, nokH / 2 + n[0] * dikte / 2, run / 2 + n[1] * dikte / 2]} rotation={[helling, 0, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[dakB, dikte, dakL]} />
+          <meshStandardMaterial attach="material-0" color="#5b3a2d" roughness={0.9} />
+          <meshStandardMaterial attach="material-1" color="#5b3a2d" roughness={0.9} />
+          <FotoMateriaal attach="material-2" foto={pannen} terugval={{ color: '#7a4434', roughness: 0.8 }} ao={0.9} />
+          <meshStandardMaterial attach="material-3" color={WIT} roughness={0.8} />
+          <meshStandardMaterial attach="material-4" color="#5b3a2d" roughness={0.9} />
+          <meshStandardMaterial attach="material-5" color="#5b3a2d" roughness={0.9} />
+        </mesh>
+        {/* Witte windveren langs de topgevels */}
+        {[-1, 1].map(s => (
+          <mesh key={s} position={[s * (dakB / 2 + 0.015), -0.07, 0]} castShadow>
+            <boxGeometry args={[0.03, 0.22, dakL]} />
+            <meshStandardMaterial color={WIT} roughness={0.6} />
+          </mesh>
+        ))}
+      </group>
+      {/* Boeiboord met goot langs de onderkant van het dakvlak */}
+      <mesh position={[0, -0.07, run + 0.03]} castShadow>
+        <boxGeometry args={[dakB, 0.22, 0.04]} />
+        <meshStandardMaterial color={WIT} roughness={0.6} />
+      </mesh>
+    </group>
+  )
+
   return (
     <group>
       <mesh position={[0, goot / 2, -diep / 2]} castShadow receiveShadow>
         <boxGeometry args={[breedte, goot, diep]} />
-        <meshStandardMaterial map={steen.map} normalMap={steen.normalMap} normalScale={[0.8, 0.8]} roughness={0.92} />
+        {/* Volgorde boxGeometry: +x, -x, +y, -y, +z (achtergevel naar de veranda), -z */}
+        <FotoMateriaal attach="material-0" foto={zijgevel} terugval={steenTerugval} />
+        <FotoMateriaal attach="material-1" foto={zijgevel} terugval={steenTerugval} />
+        <meshStandardMaterial attach="material-2" color="#6d6a66" roughness={1} />
+        <meshStandardMaterial attach="material-3" color="#6d6a66" roughness={1} />
+        <FotoMateriaal attach="material-4" foto={gevel} terugval={steenTerugval} />
+        <FotoMateriaal attach="material-5" foto={gevel} terugval={steenTerugval} />
       </mesh>
-      {/* Plint (trasraam) en dakgoot */}
+      {/* Plint (trasraam) */}
       <mesh position={[0, 0.25, 0.01]} receiveShadow>
         <boxGeometry args={[breedte + 0.02, 0.5, 0.02]} />
         <meshStandardMaterial color="#4a3f39" roughness={0.9} />
       </mesh>
-      <mesh position={[0, goot, -diep / 2]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow geometry={dak}>
-        <meshStandardMaterial color="#2f3236" roughness={0.75} />
-      </mesh>
-      <mesh position={[0, goot - 0.05, 0.25]} castShadow>
-        <boxGeometry args={[breedte + 0.3, 0.18, 0.16]} />
-        <meshStandardMaterial color="#e9e6df" roughness={0.6} />
-      </mesh>
+      <group position={[0, goot, -diep / 2]}>
+        <mesh rotation={[0, Math.PI / 2, 0]} geometry={top} castShadow receiveShadow>
+          <FotoMateriaal attach="material-0" foto={topgevel} terugval={steenTerugval} />
+          <meshStandardMaterial attach="material-1" color={WIT} roughness={0.8} />
+        </mesh>
+        {[0, Math.PI].map(dakvlak)}
+        {/* Nokvorst */}
+        <mesh position={[0, nokH + dikte * 0.6, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.11, 0.11, dakB, 16, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color="#7d4636" roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
 
       {/* Schuifpui in de achtergevel */}
       <mesh position={[0, 1.2, 0.01]}>
@@ -275,6 +341,8 @@ function Woning({ L, nacht }) {
 function Meubels({ L }) {
   const houtTex = useMemo(() => { const t = hout(); t.repeat.set(1, 1); return t }, [])
   useEffect(() => () => houtTex.dispose(), [houtTex])
+  // Eikenhouten planken, 1,2 m per herhaling (uv van RoundedBox is in meters).
+  const eiken = useFotoTexturen('hout', [1 / 1.2, 1 / 1.2])
   const z = L.D * 0.52
   const frame = '#2f2f31', kussen = '#d8d2c6', accent = '#7e8c74'
   const breed = Math.min(2.4, L.W * 0.45)
@@ -303,7 +371,7 @@ function Meubels({ L }) {
       </group>
       {/* Salontafel */}
       <RoundedBox args={[1.0, 0.05, 0.6]} radius={0.01} smoothness={2} position={[0, 0.36, 0.45]} castShadow receiveShadow>
-        <meshStandardMaterial map={houtTex} roughness={0.7} />
+        <FotoMateriaal foto={eiken} terugval={{ map: houtTex, roughness: 0.7 }} ao={0.5} />
       </RoundedBox>
       {[[-0.44, 0.2], [0.44, 0.2], [-0.44, 0.7], [0.44, 0.7]].map(([x, zz], i) => (
         <mesh key={i} position={[x, 0.17, zz]} castShadow><boxGeometry args={[0.04, 0.34, 0.04]} /><meshStandardMaterial color={frame} metalness={0.4} roughness={0.5} /></mesh>
@@ -321,8 +389,8 @@ function Meubels({ L }) {
 export function Omgeving({ L, nacht, meubels }) {
   const grasTex = useMemo(() => {
     const t = gras()
-    t.map.repeat.set(36, 36)
-    t.normalMap.repeat.set(36, 36)
+    t.map.repeat.set(90, 90)
+    t.normalMap.repeat.set(90, 90)
     return t
   }, [])
   const tegelTex = useMemo(() => tegels(), [])
@@ -336,15 +404,22 @@ export function Omgeving({ L, nacht, meubels }) {
     grasTex.map.dispose(); grasTex.normalMap.dispose(); tegelTex.map.dispose(); tegelTex.normalMap.dispose()
   }, [grasTex, tegelTex])
 
+  // Echte foto-texturen: gras 1,6 m en natuursteentegels (60 × 60 cm) 1,8 m per herhaling.
+  // De grasvlakte loopt door tot in de nevel, zodat de horizon op de lucht aansluit.
+  const GRAS_R = 200
+  const grasFoto = useFotoTexturen('gras', [(GRAS_R * 2) / 1.6, (GRAS_R * 2) / 1.6])
+  // Tegels beginnen met een hele tegel aan de gevel- en linkerzijde.
+  const tegelFoto = useFotoTexturen('terras', [terrasW / 1.8, terrasD / 1.8], [0, (1 - (terrasD / 1.8) % 1) % 1])
+
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <circleGeometry args={[80, 64]} />
-        <meshStandardMaterial map={grasTex.map} normalMap={grasTex.normalMap} normalScale={[0.6, 0.6]} roughness={1} />
+        <circleGeometry args={[GRAS_R, 96]} />
+        <FotoMateriaal foto={grasFoto} terugval={{ map: grasTex.map, normalMap: grasTex.normalMap, normalScale: [0.6, 0.6], roughness: 1 }} ao={0.6} />
       </mesh>
       <mesh position={[0, 0.0, terrasZ]} receiveShadow>
         <boxGeometry args={[terrasW, 0.02, terrasD]} />
-        <meshStandardMaterial map={tegelTex.map} normalMap={tegelTex.normalMap} normalScale={[0.7, 0.7]} roughness={0.85} />
+        <FotoMateriaal foto={tegelFoto} terugval={{ map: tegelTex.map, normalMap: tegelTex.normalMap, normalScale: [0.7, 0.7], roughness: 0.85 }} ao={0.7} />
       </mesh>
       {/* Opsluitband rond het terras */}
       {[

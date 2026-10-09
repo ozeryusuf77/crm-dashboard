@@ -9,15 +9,9 @@ import { Ritsscreen, OnderdakZonwering, BovendakZonwering } from './Zonwering.js
 import { Licht, Omgeving, Maatvoering } from './Omgeving.jsx'
 import { wandSlots, wandVoor, screensPerVak } from '../layout.js'
 import { Foutgrens } from './Foutgrens.jsx'
+import { MOBIEL } from './kwaliteit.js'
 
 const Effecten = lazy(() => import('./Effecten.jsx'))
-
-// Kwaliteitsniveau vóór het aanmaken van de Canvas bepalen (antialias kan daarna niet meer wisselen).
-// Met ?kwaliteit=laag of ?kwaliteit=hoog in de URL is het niveau te forceren.
-const GEFORCEERD = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kwaliteit') : null
-const MOBIEL = GEFORCEERD ? GEFORCEERD === 'laag' : typeof window !== 'undefined' && (
-  window.matchMedia?.('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4
-)
 
 // Camerastandpunten. "binnen" = op ooghoogte onder de veranda, rondkijken door te slepen.
 export function cameraStandpunt(naam, L) {
