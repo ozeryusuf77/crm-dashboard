@@ -1,11 +1,17 @@
-// Het aluminium frame per model: staanders, goot of kubistische omkasting,
-// muurprofiel, liggers, dakplaten, spieën, koppelingen en hemelwaterafvoer,
-// plus de verlichting/heater die aan het frame hangen.
+// Het aluminium frame per model: staanders (met voet, kap, hover/klik en doorkijk voor
+// de hemelwaterafvoer), open goot of kubistische omkasting, muurprofiel, liggers met
+// afdekkap en EPDM-rubbers, dakplaten (met dither-schaduw), spieën en koppelingen, plus
+// de verlichting/heater die aan het frame hangen. De afvoer zelf (uitloopgat, bocht of
+// kapje, gootgat, binnenbuis) komt uit Afvoer.jsx; het water uit Regen.jsx.
 import * as THREE from 'three'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useMat } from './materials.js'
-import { Balk } from './profiel.js'
+import { Balk, profielGeom } from './profiel.js'
+import { klikbaar } from './anim.js'
+import { natHook } from './regenNat.js'
+import { MOBIEL } from './kwaliteit.js'
+import { AfvoerInStaander } from './Afvoer.jsx'
 import { MUURPROFIEL_D } from '../layout.js'
 
 function Box({ args, position, rotation, mat, schaduw = true }) {
@@ -16,50 +22,100 @@ function Box({ args, position, rotation, mat, schaduw = true }) {
   )
 }
 
-// Doorsnede van de goot in (u = diepte vanaf de dakzijde, v = hoogte).
-function gootVorm(vorm, B, H) {
-  const s = new THREE.Shape()
+// ─── Goot ────────────────────────────────────────────────────────────────────
+// Buitencontour van de goot als open pad: van de bovenrand aan de dakzijde (0, H) via de
+// bodem naar de bovenrand aan de tuinzijde, in (u = diepte vanaf de dakzijde, v = hoogte).
+function tekenGootWand(p, vorm, B, H) {
+  p.moveTo(0, H)
   if (vorm === 'rond') {
     // Halfronde sierlijke goot met kraal aan de bovenzijde.
-    s.moveTo(0, H * 0.12)
-    s.quadraticCurveTo(0, 0, B * 0.22, 0)
-    s.bezierCurveTo(B * 0.78, -0.004, B * 1.02, H * 0.2, B, H * 0.56)
-    s.quadraticCurveTo(B * 0.99, H * 0.64, B * 0.95, H * 0.68)
-    s.quadraticCurveTo(B * 1.03, H * 0.82, B * 0.96, H * 0.93)
-    s.lineTo(B * 0.96, H)
-    s.lineTo(0, H)
-    s.lineTo(0, H * 0.12)
+    p.lineTo(0, H * 0.12)
+    p.quadraticCurveTo(0, 0, B * 0.22, 0)
+    p.bezierCurveTo(B * 0.78, -0.004, B * 1.02, H * 0.2, B, H * 0.56)
+    p.quadraticCurveTo(B * 0.99, H * 0.64, B * 0.95, H * 0.68)
+    p.quadraticCurveTo(B * 1.03, H * 0.82, B * 0.96, H * 0.93)
+    p.lineTo(B * 0.96, H)
   } else {
     // Rechte goot met afgeronde onderkant en een smalle sierrand bovenop.
     const r = 0.012
-    s.moveTo(0, r)
-    s.quadraticCurveTo(0, 0, r, 0)
-    s.lineTo(B - r, 0)
-    s.quadraticCurveTo(B, 0, B, r)
-    s.lineTo(B, H - 0.018)
-    s.lineTo(B + 0.006, H - 0.012)
-    s.lineTo(B + 0.006, H)
-    s.lineTo(0, H)
-    s.lineTo(0, r)
+    p.lineTo(0, r)
+    p.quadraticCurveTo(0, 0, r, 0)
+    p.lineTo(B - r, 0)
+    p.quadraticCurveTo(B, 0, B, r)
+    p.lineTo(B, H - 0.018)
+    p.lineTo(B + 0.006, H - 0.012)
+    p.lineTo(B + 0.006, H)
   }
+  return p
+}
+
+// Massieve doorsnede: voor de sierkappen (kopschotten) en de koppelstukken.
+function gootVormDicht(vorm, B, H) {
+  const s = tekenGootWand(new THREE.Shape(), vorm, B, H)
+  s.closePath()
   return s
 }
 
-// Goot per deel (met naad + koppelstuk op elke koppeling) en kopschotten.
+// Zwaartepunt van een gesloten veelhoek (schoenveterformule).
+function zwaartepunt(P, terugval) {
+  let a = 0, cx = 0, cy = 0
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], q = P[(i + 1) % P.length]
+    const k = p.x * q.y - q.x * p.y
+    a += k
+    cx += (p.x + q.x) * k
+    cy += (p.y + q.y) * k
+  }
+  a *= 0.5
+  return Math.abs(a) < 1e-9 ? terugval : new THREE.Vector2(cx / (6 * a), cy / (6 * a))
+}
+
+// Open U-kanaal met 3 mm wand: buitencontour heen, 3 mm naar binnen en de om het
+// zwaartepunt geschaalde binnencontour terug, zodat gootbodem, gootgat en gootwater
+// van bovenaf zichtbaar zijn. Eindigt in (0,003, H) → (0, H).
+function gootVormOpen(vorm, B, H) {
+  const wand = 0.003
+  const buiten = tekenGootWand(new THREE.Path(), vorm, B, H).getPoints(24)
+  const c = zwaartepunt(buiten, new THREE.Vector2(B / 2, H / 2))
+  const fx = 1 - (2 * wand) / B
+  const fy = 1 - (2 * wand) / H
+  const binnen = buiten.map(p => new THREE.Vector2(c.x + (p.x - c.x) * fx, c.y + (p.y - c.y) * fy)).reverse()
+  binnen[0].y = H
+  binnen[binnen.length - 1].y = H
+  const s = tekenGootWand(new THREE.Shape(), vorm, B, H)
+  binnen.forEach(p => s.lineTo(p.x, p.y))
+  return s
+}
+
+// Goot per deel (open kanaal, met koppelstuk op elke koppeling) en sierkappen op de einden.
 // achter = vrijstaande achterzijde (profiel gespiegeld, buitenkant op z = 0).
 function Goot({ L, y, achter = false }) {
   const mat = useMat()
-  const vorm = useMemo(() => gootVorm(L.goot, L.gootB, L.gootH), [L.goot, L.gootB, L.gootH])
-  const kop = useMemo(() => new THREE.ExtrudeGeometry(vorm, { depth: 0.005, bevelEnabled: false, curveSegments: 12 }), [vorm])
-  const delen = useMemo(() => L.delen.map(d => {
-    const g = new THREE.ExtrudeGeometry(vorm, { depth: d.breedte - 0.004, bevelEnabled: false, curveSegments: 16 })
-    return { d, g }
-  }), [vorm, L.delen])
-  useEffect(() => () => kop.dispose(), [kop])
+  const B = L.gootB, H = L.gootH
+  const vormen = useMemo(() => ({ open: gootVormOpen(L.goot, B, H), dicht: gootVormDicht(L.goot, B, H) }), [L.goot, B, H])
+  // Sierkap: 10 mm dik met 4 mm omlopende afronding; gecentreerd op profiel én dikte.
+  const kop = useMemo(() => {
+    const g = new THREE.ExtrudeGeometry(vormen.dicht, {
+      depth: 0.010, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.003, bevelSegments: 2, curveSegments: 12,
+    })
+    g.translate(-B / 2, -H / 2, -0.005)
+    return g
+  }, [vormen, B, H])
+  // Koppelstuk/voeg: massieve schijf van 5 mm, via scale naar de gewenste breedte.
+  const koppelKop = useMemo(
+    () => new THREE.ExtrudeGeometry(vormen.dicht, { depth: 0.005, bevelEnabled: false, curveSegments: 12 }).translate(-B / 2, -H / 2, -0.0025),
+    [vormen, B, H],
+  )
+  const delen = useMemo(() => L.delen.map(d => ({
+    d, g: new THREE.ExtrudeGeometry(vormen.open, { depth: d.breedte - 0.004, bevelEnabled: false, curveSegments: 16 }),
+  })), [vormen, L.delen])
+  useEffect(() => () => { kop.dispose(); koppelKop.dispose() }, [kop, koppelKop])
   useEffect(() => () => delen.forEach(({ g }) => g.dispose()), [delen])
 
-  // Lokale x (profieldiepte) → wereld ±z, extrusie → wereld x.
-  const z = achter ? L.gootB : L.D - L.gootB
+  // Lokale x (profieldiepte u) → wereld ±z, extrusie → wereld x. u = 0 ligt aan de dakzijde.
+  const z = achter ? B : L.D - B
+  const zHart = achter ? B / 2 : L.D - B / 2
+  const yHart = y + H / 2
   const rot = [0, achter ? Math.PI / 2 : -Math.PI / 2, 0]
   return (
     <group>
@@ -67,40 +123,79 @@ function Goot({ L, y, achter = false }) {
         <mesh key={i} geometry={g} material={mat.frame} castShadow receiveShadow rotation={rot}
           position={achter ? [d.x0 + 0.002, y, z] : [d.x1 - 0.002, y, z]} />
       ))}
-      {/* Kopschotten aan beide uiteinden */}
+      {/* Sierkappen: 5 % groter dan het profiel, 10 mm over het gooteinde en 6 mm erbuiten */}
       {[-1, 1].map(s => (
-        <mesh key={s} geometry={kop} material={mat.frame} rotation={rot} scale={[1.02, 1.02, 1]}
-          position={achter ? [s < 0 ? -L.W / 2 - 0.005 : L.W / 2, y - 0.002, z] : [s < 0 ? -L.W / 2 : L.W / 2 + 0.005, y - 0.002, z]} />
+        <mesh key={s} geometry={kop} material={mat.frame} rotation={rot} scale={[1.05, 1.05, 1]} castShadow receiveShadow
+          position={[s * (L.W / 2 - 0.002), yHart, zHart]} />
       ))}
-      {/* Koppelstukken: iets grotere band (2 mm rondom) over de naad */}
+      {/* Koppelstukken: 40 mm brede band (2 mm rondom) met een rubber voeg aan weerszijden */}
       {L.koppelingen.map((x, i) => (
-        <mesh key={`k${i}`} geometry={kop} material={mat.koppel} rotation={rot}
-          scale={[(L.gootB + 0.004) / L.gootB, (L.gootH + 0.004) / L.gootH, 8]}
-          position={achter ? [x - 0.02, y - 0.002, z + 0.002] : [x + 0.02, y - 0.002, z - 0.002]} />
+        <group key={`k${i}`} position={[x, yHart, zHart]} rotation={rot}>
+          <mesh geometry={koppelKop} material={mat.koppel} scale={[(B + 0.004) / B, (H + 0.004) / H, 8]} castShadow receiveShadow />
+          {[-1, 1].map(s => (
+            <mesh key={s} geometry={koppelKop} material={mat.rubber} position={[0, 0, s * 0.02075]}
+              scale={[(B + 0.002) / B, (H + 0.002) / H, 0.3]} />
+          ))}
+        </group>
       ))}
     </group>
   )
 }
 
-// Kubistische omkasting: rechthoekige balk per deel met naad op de koppeling.
-function KubusBalk({ L, z, y0, h, diep }) {
+// ─── Kubistische omkasting en muurprofiel ────────────────────────────────────
+// Rechthoekige balk per deel met koppelstuk (en rubber voegen) op de koppeling.
+// `inkorten` kort de buitenste delen aan de uiteinden in (draagbalk tussen de zijomkastingen).
+function KubusBalk({ L, z, y0, h, diep, inkorten = 0 }) {
   const mat = useMat()
+  const delen = useMemo(() => (inkorten ? L.delen.map((d, i) => {
+    const x0 = i === 0 ? d.x0 + inkorten : d.x0
+    const x1 = i === L.delen.length - 1 ? d.x1 - inkorten : d.x1
+    return { x0, x1, breedte: x1 - x0, midden: (x0 + x1) / 2 }
+  }) : L.delen), [L.delen, inkorten])
   return (
     <group>
-      {L.delen.map((d, i) => (
-        <Balk key={i} as="x" b={diep} h={h} lengte={d.breedte - 0.004} r={0.006}
+      {delen.map((d, i) => (
+        <Balk key={i} as="x" b={diep} h={h} lengte={d.breedte - 0.004} r={0.010}
           position={[d.midden, y0 + h / 2, z]} mat={mat.frame} />
       ))}
       {L.koppelingen.map((x, i) => (
-        <Box key={`k${i}`} args={[0.03, h + 0.004, diep + 0.004]} position={[x, y0 + h / 2, z]} mat={mat.koppel} />
+        <group key={`k${i}`} position={[x, y0 + h / 2, z]}>
+          <Box args={[0.03, h + 0.004, diep + 0.004]} mat={mat.koppel} />
+          {[-1, 1].map(s => (
+            <Box key={s} args={[0.0015, h + 0.002, diep + 0.002]} position={[s * 0.01575, 0, 0]} mat={mat.rubber} schaduw={false} />
+          ))}
+        </group>
       ))}
     </group>
   )
 }
 
-// Muurprofiel tegen de gevel, per deel, met loodslabbe erboven.
+// Muurprofiel tegen de gevel, per deel, met loodslabbe erboven en keilboutkappen om de 0,5 m.
 function Muurprofiel({ L, yBoven, h }) {
   const mat = useMat()
+  const kapGeom = useMemo(() => new THREE.CylinderGeometry(0.009, 0.009, 0.004, 12).rotateX(Math.PI / 2), [])
+  useEffect(() => () => kapGeom.dispose(), [kapGeom])
+  // Posities van de kappen: om de 0,5 m vanaf 25 cm uit de hoek, niet onder een koppelstuk.
+  const kappen = useMemo(() => {
+    const xs = []
+    for (let x = -L.W / 2 + 0.25; x <= L.W / 2 - 0.25 + 1e-6; x += 0.5) {
+      if (!L.koppelingen.some(k => Math.abs(k - x) < 0.06)) xs.push(x)
+    }
+    return xs
+  }, [L.W, L.koppelingen])
+  const ref = useRef()
+  useLayoutEffect(() => {
+    const m = ref.current
+    if (!m) return
+    const o = new THREE.Object3D()
+    kappen.forEach((x, i) => {
+      o.position.set(x, yBoven - h / 2, MUURPROFIEL_D + 0.002)
+      o.updateMatrix()
+      m.setMatrixAt(i, o.matrix)
+    })
+    m.instanceMatrix.needsUpdate = true
+    m.computeBoundingSphere()
+  }, [kappen, yBoven, h])
   return (
     <group>
       {L.delen.map((d, i) => (
@@ -108,13 +203,22 @@ function Muurprofiel({ L, yBoven, h }) {
           position={[d.midden, yBoven - h / 2, MUURPROFIEL_D / 2]} mat={mat.frame} />
       ))}
       {L.koppelingen.map((x, i) => (
-        <Box key={`k${i}`} args={[0.03, h + 0.004, MUURPROFIEL_D + 0.004]} position={[x, yBoven - h / 2, MUURPROFIEL_D / 2]} mat={mat.koppel} />
+        <group key={`k${i}`} position={[x, yBoven - h / 2, MUURPROFIEL_D / 2]}>
+          <Box args={[0.03, h + 0.004, MUURPROFIEL_D + 0.004]} mat={mat.koppel} />
+          {[-1, 1].map(s => (
+            <Box key={s} args={[0.0015, h + 0.002, MUURPROFIEL_D + 0.002]} position={[s * 0.01575, 0, 0]} mat={mat.rubber} schaduw={false} />
+          ))}
+        </group>
       ))}
       <Box args={[L.W + 0.02, 0.12, 0.006]} position={[0, yBoven + 0.055, 0.004]} rotation={[0.08, 0, 0]} mat={mat.lood} schaduw={false} />
+      {kappen.length > 0 && (
+        <instancedMesh key={kappen.length} ref={ref} args={[kapGeom, mat.frame, kappen.length]} receiveShadow />
+      )}
     </group>
   )
 }
 
+// ─── Spie ────────────────────────────────────────────────────────────────────
 // Driehoekige spie boven de zijwand, onder de schuine ligger (alleen hellend dak).
 function Spie({ L, kant, type }) {
   const mat = useMat()
@@ -143,43 +247,91 @@ function Spie({ L, kant, type }) {
   )
 }
 
-function Staander({ L, x, z, hoogte }) {
+// ─── Staander ────────────────────────────────────────────────────────────────
+// Randlijnen van de doorkijk-staander (lengte 1 langs lokale z, zoals profielGeom): de
+// omtrek van boven- en onderkant uit EdgesGeometry plus vier lengtelijnen op het midden
+// van de afgeronde hoeken. (EdgesGeometry alleen levert geen lengtelijnen op: de facetten
+// van de 6 mm afronding staan 22,5° op elkaar, onder de drempel van 30°.)
+function doorkijkRanden(b, h, r) {
+  const kop = new THREE.EdgesGeometry(profielGeom(b, h, r), 30)
+  const pos = Array.from(kop.attributes.position.array)
+  kop.dispose()
+  const k = r * (1 - Math.SQRT1_2)
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    pos.push(sx * (b / 2 - k), sy * (h / 2 - k), -0.5, sx * (b / 2 - k), sy * (h / 2 - k), 0.5)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  return g
+}
+
+// Staander van de vloer (L.vloerY) tot `hoogte`, met voet (voetkap bij Cubic, voetplaat met
+// rvs dopmoeren bij Classic/Linea) en bij de goot-modellen een staanderkap onder de goot.
+// `kant` ('links'|'rechts') maakt een buitenste voorstaander aanklikbaar (hover-markering);
+// `afvoer` markeert de staander met de hemelwaterafvoer, die bij `doorkijk` half doorzichtig
+// wordt met randlijnen (renderOrder 6), zodat binnenbuis en waterkolom zichtbaar zijn.
+function Staander({ L, x, z, hoogte, afvoer = false, doorkijk = false, kant = null, onKlikStaander }) {
   const mat = useMat()
+  const lengte = hoogte - L.vloerY
+  const klik = !!(kant && onKlikStaander)
+  const [hover, setHover] = useState(false)
+
+  // Hover-markering: eigen kloon van het framemateriaal met lichte emissie in de framekleur.
+  const hoverMat = useMemo(() => (klik ? natHook(mat.frame.clone()) : null), [klik, mat.frame])
+  useEffect(() => () => hoverMat?.dispose(), [hoverMat])
+  if (hoverMat) {
+    hoverMat.color.copy(mat.frame.color)
+    hoverMat.emissive.copy(mat.frame.color).multiplyScalar(0.15)
+    hoverMat.metalness = mat.frame.metalness
+  }
+  useEffect(() => () => { if (hover) document.body.style.cursor = '' }, [hover])
+
+  // Doorkijk: randlijnen in een donkere tint van de framekleur.
+  const randen = useMemo(() => (afvoer ? doorkijkRanden(L.sB, L.sD, 0.006) : null), [afvoer, L.sB, L.sD])
+  const lijnMat = useMemo(() => (afvoer ? new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 }) : null), [afvoer])
+  useEffect(() => () => { randen?.dispose(); lijnMat?.dispose() }, [randen, lijnMat])
+  if (lijnMat) lijnMat.color.copy(mat.frame.color).multiplyScalar(0.5)
+
+  let handlers = {}
+  if (klik) {
+    const k = klikbaar(() => onKlikStaander(kant))
+    handlers = {
+      ...k,
+      onPointerOver: e => { k.onPointerOver(e); setHover(true) },
+      onPointerOut: () => { k.onPointerOut(); setHover(false) },
+    }
+  }
+
+  const zichtbaar = afvoer && doorkijk
+  const m = zichtbaar ? mat.frameDoorkijk : hover && hoverMat ? hoverMat : mat.frame
+  const yVoet = L.vloerY
   return (
-    <group>
-      <Balk as="y" b={L.sB} h={L.sD} lengte={hoogte} r={0.006} position={[x, hoogte / 2, z]} mat={mat.frame} />
-      {/* Voetplaat met afdekkapjes over de ankerbouten */}
-      <Box args={[L.sB + 0.07, 0.012, L.sD + 0.07]} position={[x, 0.006, z]} mat={mat.frame} />
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b], i) => (
-        <mesh key={i} position={[x + a * (L.sB / 2 + 0.022), 0.017, z + b * (L.sD / 2 + 0.022)]} material={mat.frame}>
-          <cylinderGeometry args={[0.009, 0.009, 0.012, 12]} />
-        </mesh>
-      ))}
+    <group position={[x, 0, z]} {...handlers}>
+      <group position={[0, yVoet + lengte / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1, lengte]}>
+        <mesh geometry={profielGeom(L.sB, L.sD, 0.006)} material={m} castShadow receiveShadow renderOrder={zichtbaar ? 6 : 0} />
+        {zichtbaar && <lineSegments geometry={randen} material={lijnMat} renderOrder={6.5} />}
+      </group>
+      {L.kubus ? (
+        // Voetkap over de inwendige stelvoet.
+        <Balk as="y" b={L.sB + 0.012} h={L.sD + 0.012} lengte={0.03} r={0.004} position={[0, yVoet + 0.015, 0]} mat={mat.frame} />
+      ) : (
+        <>
+          {/* Voetplaat met vier rvs dopmoeren over de ankerbouten */}
+          <Balk as="y" b={L.sB + 0.05} h={L.sD + 0.05} lengte={0.01} r={0.006} position={[0, yVoet + 0.005, 0]} mat={mat.frame} />
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b], i) => (
+            <mesh key={i} position={[a * (L.sB / 2 + 0.016), yVoet + 0.016, b * (L.sD / 2 + 0.016)]} material={mat.rvs} castShadow>
+              <cylinderGeometry args={[0.008, 0.008, 0.012, 12]} />
+            </mesh>
+          ))}
+          {/* Staanderkap (gootverbinder) onder de goot */}
+          <Balk as="y" b={L.sB + 0.008} h={L.sD + 0.008} lengte={0.05} r={0.008} position={[0, hoogte - 0.025, 0]} mat={mat.frame} />
+        </>
+      )}
     </group>
   )
 }
 
-// Zichtbare hemelwaterafvoer (Classic/Linea) langs de hoekstaander, met bocht naar de goot.
-function Afvoer({ L, kant }) {
-  const mat = useMat()
-  const x = kant * (L.W / 2 + 0.05)
-  const z = L.D - L.gootB * 0.45
-  const lengte = L.Hf - 0.12
-  return (
-    <group>
-      <mesh position={[x, 0.06 + lengte / 2, z]} material={mat.frame} castShadow>
-        <cylinderGeometry args={[0.04, 0.04, lengte, 20]} />
-      </mesh>
-      <mesh position={[x - kant * 0.03, L.Hf - 0.03, z]} rotation={[0, 0, kant * 0.7]} material={mat.frame} castShadow>
-        <cylinderGeometry args={[0.035, 0.035, 0.16, 16]} />
-      </mesh>
-      <mesh position={[x + kant * 0.03, 0.05, z]} rotation={[0, 0, -kant * 0.9]} material={mat.frame} castShadow>
-        <cylinderGeometry args={[0.04, 0.045, 0.12, 16]} />
-      </mesh>
-    </group>
-  )
-}
-
+// ─── Verlichting ─────────────────────────────────────────────────────────────
 function spotPosities(L, n) {
   if (!n) return []
   const rijen = n >= 8 && L.D >= 3 ? 2 : 1
@@ -201,9 +353,14 @@ function spotPosities(L, n) {
   return res
 }
 
-export default function Veranda({ cfg, L, nacht, heaterAan }) {
+// ─── Veranda ─────────────────────────────────────────────────────────────────
+// doorkijk: afvoerstaander(s) half doorzichtig met binnenbuis (regenmodus / afvoerkeuze).
+// onKlikStaander(kant): klik op een buitenste voorstaander ('links'|'rechts').
+// afvoerLabels: uitleglabels langs de waterloop (alleen samen met doorkijk; standpunt 'afvoer').
+export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, onKlikStaander, afvoerLabels = false }) {
   const mat = useMat()
   const { W, Hf } = L
+  const afvoeren = L.afvoeren || []
   const lengteLigger = L.lengteDak / Math.cos(L.helling)
   // Afdekprofiel stopt bij de binnenkant van de goot/voorbalk.
   const lengteAfdek = lengteLigger - L.gootB / 2 / Math.cos(L.helling)
@@ -235,20 +392,32 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
 
   const hVoor = Hf
   const hAchter = L.achterBalkOnder
+  // Dakschaduw: helder glas/poly werpt via het dither-dieptemateriaal een lichte schaduw,
+  // opaal/mat een zwaardere; op mobiel (PCF, geen PCSS) alleen de ondoorzichtige daktypes.
+  const dakSchaduw = MOBIEL ? { castShadow: mat.dakSchaduw } : {
+    castShadow: true, customDepthMaterial: mat.dakSchaduw ? mat.dakDiepteOpaal : mat.dakDiepte,
+  }
+  const isAfvoerStaander = x => afvoeren.some(a => Math.abs(a.x - x) < 1e-6)
+  const nStaanders = L.xStaanders.length
 
   return (
     <group>
-      {/* Staanders voor (bij Cubic XL op de draagbalklijn, 1 m achter de voorrand) */}
-      {L.xStaanders.map((x, i) => <Staander key={`sv${i}`} L={L} x={x} z={L.zVoorStaander} hoogte={hVoor} />)}
+      {/* Staanders voor (bij Cubic XL op de draagbalklijn, 1 m achter de voorrand); de twee
+          buitenste zijn aanklikbaar en kunnen de afvoer dragen. */}
+      {L.xStaanders.map((x, i) => (
+        <Staander key={`sv${i}`} L={L} x={x} z={L.zVoorStaander} hoogte={hVoor}
+          kant={i === 0 ? 'links' : i === nStaanders - 1 ? 'rechts' : null}
+          afvoer={isAfvoerStaander(x)} doorkijk={doorkijk} onKlikStaander={onKlikStaander} />
+      ))}
 
       {/* Voorzijde: goot of omkasting */}
       {L.kubus
         ? <KubusBalk L={L} z={L.D - L.gootB / 2} y0={Hf} h={L.gootH} diep={L.gootB} />
         : <Goot L={L} y={Hf} />}
       {L.overstek > 0 && (
-        // Draagbalk op de staanders; de liggers kragen 1 m uit tot de voorbalk.
-        // Bovenkant net onder de dakplaten: de liggers rusten erop en kragen uit.
-        <KubusBalk L={L} z={L.zVoorStaander} y0={Hf} h={L.dakY(L.zVoorStaander) - Hf - 0.02} diep={L.sD + 0.02} />
+        // Draagbalk op de staanders tussen de zijomkastingen; de liggers rusten erop en
+        // kragen 1 m uit tot de voorbalk. Bovenkant net onder de dakplaten.
+        <KubusBalk L={L} z={L.zVoorStaander} y0={Hf} h={L.dakY(L.zVoorStaander) - Hf - 0.02} diep={L.sD + 0.02} inkorten={L.gootB + 0.0005} />
       )}
 
       {/* Achterzijde: muurprofiel of (vrijstaand) achterstaanders + goot/omkasting */}
@@ -263,30 +432,37 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
         ? <Muurprofiel L={L} yBoven={L.yRand} h={0.22} />
         : <Muurprofiel L={L} yBoven={L.yDakAchter + 0.025} h={0.17} />}
 
-      {/* Kubistische zijomkasting over de volle diepte */}
+      {/* Kubistische zijomkasting: hetzelfde profiel als de voorbalk, flush met de staander,
+          over de volle diepte (bij Cubic XL dus ook langs het overstek, met de afvoerbuis erin). */}
       {L.kubus && (() => {
         // Tussen muurprofiel/achterbalk en voorbalk, zodat vlakken niet samenvallen.
         const z0 = L.vrijstaand ? L.gootB : MUURPROFIEL_D
         const z1 = L.D - L.gootB
         return [-1, 1].map(s => (
-          <Balk key={`zo${s}`} as="z" b={0.09} h={L.gootH} lengte={z1 - z0} r={0.006}
-            position={[s * (W / 2 - 0.045), Hf + L.gootH / 2, (z0 + z1) / 2]} mat={mat.frame} />
+          <group key={`zo${s}`} position={[s * (W / 2 - L.gootB / 2), Hf + L.gootH / 2, 0]}>
+            <Balk as="z" b={L.gootB} h={L.gootH} lengte={z1 - z0} r={0.010} position={[0, 0, (z0 + z1) / 2]} mat={mat.frame} />
+            {/* Hoekkappen over de kopse naad met de voorbalk (en vrijstaand de achterbalk) */}
+            <Box args={[L.gootB + 0.004, L.gootH + 0.004, 0.012]} position={[0, 0, z1]} mat={mat.frame} />
+            {L.vrijstaand && <Box args={[L.gootB + 0.004, L.gootH + 0.004, 0.012]} position={[0, 0, z0]} mat={mat.frame} />}
+          </group>
         ))
       })()}
 
-      {/* Liggers (dubbel op een koppeling) met afdekprofiel */}
+      {/* Liggers (dubbel op een koppeling) met EPDM-onderrubber en brede afdekkap */}
       {L.liggers.map((l, i) => (
         // Draaipunt op de bovenkant van de ligger in het midden, zodat de helling klopt.
         <group key={`l${i}`} position={[l.x, L.dakY(zMid), zMid]} rotation={[L.helling, 0, 0]}>
           <Balk as="z" b={L.lB} h={L.lH} lengte={lengteLigger} r={0.004} position={[0, -L.lH / 2, 0]} mat={mat.frame} />
-          <Box args={[L.lB * 0.85, 0.012, lengteAfdek]} position={[0, 0.011, -(lengteLigger - lengteAfdek) / 2]} mat={mat.frame} schaduw={false} />
+          <Box args={[L.lB + 0.006, 0.003, lengteLigger]} position={[0, 0.0015, 0]} mat={mat.rubber} schaduw={false} />
+          <Balk as="z" b={L.lB + 0.02} h={0.014} r={0.005} lengte={lengteAfdek}
+            position={[0, 0.011, -(lengteLigger - lengteAfdek) / 2]} mat={mat.frame} schaduw={false} />
         </group>
       ))}
 
       {/* Dakplaten */}
       {L.platen.map((p, i) => (
         <mesh key={`p${i}`} material={mat.dak} position={[p.x, L.dakY(zMid) - dikte / 2 + 0.004, zMid]}
-          rotation={[L.helling, 0, 0]} renderOrder={2} castShadow={mat.dakSchaduw} receiveShadow>
+          rotation={[L.helling, 0, 0]} renderOrder={2} receiveShadow {...dakSchaduw}>
           <boxGeometry args={[p.b, dikte, lengteLigger]} />
         </mesh>
       ))}
@@ -304,9 +480,10 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
         <Spie key={`spie-${kant}`} L={L} kant={s} type={cfg.spie[kant]} />
       ))}
 
-      {/* Hemelwaterafvoer: zichtbaar bij de goot-modellen, bij Cubic via de staander */}
-      {L.M.afvoer === 'zichtbaar' && <Afvoer L={L} kant={-1} />}
-      {L.M.afvoer === 'zichtbaar' && L.delen.length > 1 && <Afvoer L={L} kant={1} />}
+      {/* Hemelwaterafvoer door de gekozen hoekstaander(s): gat, bocht/kapje, gootgat, binnenbuis */}
+      {afvoeren.map(a => (
+        <AfvoerInStaander key={a.kant} L={L} a={a} doorkijk={doorkijk} labels={doorkijk && afvoerLabels} />
+      ))}
 
       {/* LED-spots */}
       {spots.map((p, i) => (
@@ -315,18 +492,28 @@ export default function Veranda({ cfg, L, nacht, heaterAan }) {
         </mesh>
       ))}
       {nacht && lichtSpots.map((p, i) => (
-        <pointLight key={`pl${i}`} position={[p[0], p[1] - 0.1, p[2]]} intensity={(2.2 * spots.length) / lichtSpots.length}
-          distance={6} decay={1.6} color="#ffd9a0" />
+        <pointLight key={`pl${i}`} position={[p[0], p[1] - 0.1, p[2]]} intensity={(2.2 * 1.4 * spots.length) / lichtSpots.length}
+          distance={6} decay={2} color="#ffd9a0" />
       ))}
 
-      {/* LED-strip onder de goot/voorbalk */}
+      {/* LED-groef in de onderzijde van de voorbalk (Cubic), met daarin de LED-strip;
+          bij de goot-modellen hangt de strip aan de binnenzijde van de goot. */}
+      {L.kubus && (
+        <Box args={[W - 0.06, 0.002, 0.022]} position={[0, Hf - 0.001, L.D - L.gootB / 2]} mat={mat.rubber} schaduw={false} />
+      )}
       {cfg.extra.ledStrip && (
         <>
-          <mesh position={[0, Hf + 0.01, L.D - L.gootB - 0.004]} material={mat.led}>
-            <boxGeometry args={[W - 0.2, 0.012, 0.008]} />
-          </mesh>
+          {L.kubus ? (
+            <mesh position={[0, Hf - 0.0015, L.D - L.gootB / 2]} material={mat.led}>
+              <boxGeometry args={[W - 0.2, 0.003, 0.012]} />
+            </mesh>
+          ) : (
+            <mesh position={[0, Hf + 0.01, L.D - L.gootB - 0.004]} material={mat.led}>
+              <boxGeometry args={[W - 0.2, 0.012, 0.008]} />
+            </mesh>
+          )}
           {nacht && [-1, 0, 1].map(k => (
-            <pointLight key={k} position={[(k * W) / 3, Hf - 0.15, L.D - L.gootB - 0.1]} intensity={1.2} distance={4} decay={1.6} color="#ffd9a0" />
+            <pointLight key={k} position={[(k * W) / 3, Hf - 0.15, L.D - L.gootB - 0.1]} intensity={1.2 * 1.4} distance={4} decay={2} color="#ffd9a0" />
           ))}
         </>
       )}
