@@ -17,6 +17,7 @@ import { hout, kinderkopjes, canvasTex, rng } from './textures.js'
 import { natShader, natKeyFn } from './regenNat.js'
 import { MOBIEL, REKWISIETEN } from './kwaliteit.js'
 import { Model, modelUrl, ruimOp } from './modellen.js'
+import { meubelIndeling } from './Meubels.jsx'
 import { Foutgrens } from './Foutgrens.jsx'
 
 // ── Maten ──────────────────────────────────────────────────────────────────────
@@ -347,12 +348,16 @@ function plaatsing(L, indeling, niveau, meubels, nabij) {
   ]
   for (const [naam, pos, opties] of bomen.slice(0, niveau.bomen)) voeg(naam, pos, { ...opties, set: 'laag' })
 
-  // Potplanten op het terras (bij de meubels): hoge plant naast de linker voorstaander, binnen
-  // de staanderlijn zodat een voorwand of zijwand er niet doorheen loopt; terracottapot in de
-  // rechter achterhoek (vrij van de zichtlijn van het afvoerstandpunt bij uitloop 'achter').
+  // Potplanten op het terras (bij de meubels), in de achterhoeken bij de gevel: zo staan ze nooit
+  // vóór de staandervoet of de uitloop in het (verhoogde) afvoerstandpunt, dat schuin van voren
+  // op een voorstaander kijkt. De hoge plant links achter het kleed en de linker bijzettafel
+  // (positie uit de meubelindeling, minstens 0,4 m van de gevel); de terracottapot rechts achter.
   if (meubels) {
+    const ind = meubelIndeling(L)
+    const tafelZ = ind.bijzettafels[0] ? ind.bijzettafels[0].z - ind.bijzettafels[0].maat / 2 : Infinity
+    const zHoog = Math.max(0.4, Math.min(ind.kleed.z - ind.kleed.d / 2, tafelZ) - 0.35)
     const potten = {
-      potplant_hoog: [[-W / 2 + 0.55, vloerY, D - 0.45], { yaw: 0.4 }],
+      potplant_hoog: [[-W / 2 + 0.55, vloerY, zHoog], { yaw: 0.4 }],
       potplant_terracotta: [[W / 2 - 0.6, vloerY, 0.75], { s: 1.25, yaw: 2.6 }],
     }
     for (const naam of niveau.potten) if (potten[naam]) voeg(naam, ...potten[naam])
@@ -361,8 +366,11 @@ function plaatsing(L, indeling, niveau, meubels, nabij) {
   // Tuinmeubilair: altijd met schaduw (weinig driehoeken).
   if (niveau.bistro) voeg('tuinset_bistro', [erfX - 1.5, 0, D + 3.2], { yaw: -0.5, schaduw: true })
   if (niveau.bank) voeg('tuinbank_hout', [1.2, 0, tuinD - 0.6], { yaw: Math.PI, schaduw: true })
+  // Plantenbakken in de rechter border, vanaf 2 m voorbij de voorstaanders: de verhoogde
+  // afvoercamera staat op ±3,4 m vóór de staander en kijkt 29° omlaag, zodat de bakken onder
+  // de onderrand van het beeld blijven in plaats van vóór de staandervoet te staan.
   for (let i = 0; i < niveau.plantenbakken; i++) {
-    const z = D + 0.9 + i * 1.1
+    const z = D + 2.0 + i * 1.1
     voeg('plantenbak_hout', [erfX - 0.45, 0, z], { yaw: Math.PI / 2, schaduw: true })
     voeg('struik_laag', [erfX - 0.45, 0.35, z], { s: 0.9, set: 'laag' })
   }
