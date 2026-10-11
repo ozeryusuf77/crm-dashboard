@@ -2,7 +2,7 @@
 // Assenstelsel: x = breedte (midden = 0), y = omhoog (0 = terrasreferentie), z = diepte
 // (z = 0 bij de gevel, +z richting tuin).
 import {
-  MODELLEN, DAKKEN, PLAAT_BREEDTE, OVERSPANNING_DIEPTE_FACTOR, SCHUIFWAND,
+  MODELLEN, DAKKEN, PLAAT_BREEDTE, OVERSPANNING_DIEPTE_FACTOR, SCHUIFWAND, SCHUIFPUI,
   AFVOER, AFVOER_RICHTINGEN, AFVOER_UITLOPEN, STANDAARD_CONFIG, begrensMaten, vind,
 } from './options.js'
 
@@ -331,9 +331,35 @@ export function aantalSchuifPanelen(breedte) {
   return Math.min(maxSporen, Math.max(minSporen, n))
 }
 
-// Aantal vleugels in een schuifpui: 2 tot 3,2 m, daarboven 4 (middendeel schuift).
-export function aantalPuiVleugels(breedte) {
-  return breedte > 3.2 ? 4 : 2
+// Breedte van één vleugel van een n-delige schuifpui (kozijn eraf, vleugels overlappen elkaar).
+export function puiVleugelBreedte(breedte, n) {
+  const { kozijn, overlap } = SCHUIFPUI
+  return (breedte - 2 * kozijn + (n - 1) * overlap) / n
+}
+
+// Kan een pui van deze breedte n-delig? Vleugels moeten tussen vleugelMin en vleugelMax blijven.
+export function puiDelenOptie(breedte, n) {
+  const b = puiVleugelBreedte(breedte, n)
+  const cm = Math.round(b * 100)
+  if (b < SCHUIFPUI.vleugelMin) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te smal (minimaal ${Math.round(SCHUIFPUI.vleugelMin * 100)} cm)` }
+  if (b > SCHUIFPUI.vleugelMax) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te breed (maximaal ${Math.round(SCHUIFPUI.vleugelMax * 100)} cm)` }
+  return { mogelijk: true, vleugel: b }
+}
+
+// Standaardaantal delen: 2 tot 3,2 m, daarboven 4 (de middelste vleugels schuiven). Kan dat niet
+// binnen de vleugelmaten, dan het kleinste aantal dat wél kan; kan niets, dan 2 (smal) of 4 (breed).
+export function autoPuiDelen(breedte) {
+  const voorkeur = breedte > SCHUIFPUI.autoGrens ? 4 : 2
+  if (puiDelenOptie(breedte, voorkeur).mogelijk) return voorkeur
+  return [2, 3, 4].find(n => puiDelenOptie(breedte, n).mogelijk) || voorkeur
+}
+
+// Aantal vleugels van een schuifpui: de gekozen `delen` (2, 3 of 4) als die bij deze breedte kan,
+// anders de automatische keuze. Alles wat de pui tekent, prijst of beschrijft gebruikt deze functie.
+export function aantalPuiVleugels(breedte, delen = 'auto') {
+  const n = Number(delen)
+  if ([2, 3, 4].includes(n) && puiDelenOptie(breedte, n).mogelijk) return n
+  return autoPuiDelen(breedte)
 }
 
 // Een ritsscreen is max 5,5 m breed; een breder vak krijgt meerdere screens naast elkaar.

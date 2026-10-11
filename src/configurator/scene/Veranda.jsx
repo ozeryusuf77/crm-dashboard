@@ -219,14 +219,19 @@ function Muurprofiel({ L, yBoven, h }) {
 }
 
 // ─── Spie ────────────────────────────────────────────────────────────────────
-// Driehoekige spie boven de zijwand, onder de schuine ligger (alleen hellend dak).
+// Driehoekige spie boven de zijwand, onder de schuine ligger (alleen hellend dak). Hij zit in een
+// omlijsting: onder de zijbalk, boven de ligger en tegen de gevel een verticaal aansluitprofiel
+// (vrijstaand sluit hij op de achterstaander aan). Tot SPIE_DEEL_MAX diep is het één vlak zonder
+// stijl; dieper wordt hij in gelijke delen gesplitst met een tussenstijl op elke deling.
+const SPIE_DEEL_MAX = 3.6
+const SPIE_STIJL = 0.04   // stijlbreedte langs de diepte; in de breedte even diep als de zijbalk eronder (60 mm)
 function Spie({ L, kant, type }) {
   const mat = useMat()
+  // Niet in een open gootkanaal steken: 4 mm vóór de dakzijdige gootwand afkappen
+  // (voorgoot altijd, achtergoot bij vrijstaand).
+  const z0 = L.vrijstaand ? Math.max(L.zij.z0, L.gootB + 0.004) : L.zij.z0
+  const z1 = Math.min(L.zij.z1, L.D - L.gootB - 0.004)
   const geom = useMemo(() => {
-    // Niet in een open gootkanaal steken: 4 mm vóór de dakzijdige gootwand afkappen
-    // (voorgoot altijd, achtergoot bij vrijstaand).
-    const z0 = L.vrijstaand ? Math.max(L.zij.z0, L.gootB + 0.004) : L.zij.z0
-    const z1 = Math.min(L.zij.z1, L.D - L.gootB - 0.004)
     const onder = L.Hf + 0.005
     const s = new THREE.Shape()
     s.moveTo(z0, onder)
@@ -236,16 +241,22 @@ function Spie({ L, kant, type }) {
     s.lineTo(z0, onder)
     // 8 mm dik, zodat de spie van binnen én buiten zichtbaar is (ook met FrontSide-materialen).
     return new THREE.ExtrudeGeometry(s, { depth: 0.008, bevelEnabled: false }).translate(0, 0, -0.004)
-  }, [L])
+  }, [L, z0, z1])
   useEffect(() => () => geom.dispose(), [geom])
   const m = type === 'glas' ? mat.glasHelder : type === 'poly' ? mat.polySpie : mat.frame
   const x = kant * L.zij.x
-  const zm = (L.zij.z0 + L.zij.z1) / 2
-  const hm = L.dakY(zm) - L.lH - L.Hf
+  // Stijlen: tegen de gevel (hart 20 mm vanaf de glasrand) en op elke deling; van de zijbalk tot
+  // net onder de ligger, gemeten aan de lage (voorste) kant van de stijl.
+  const nDelen = Math.max(1, Math.ceil((z1 - z0) / SPIE_DEEL_MAX - 1e-9))
+  const stijlen = L.vrijstaand ? [] : [z0 + SPIE_STIJL / 2]
+  for (let k = 1; k < nDelen; k++) stijlen.push(z0 + (k * (z1 - z0)) / nDelen)
   return (
     <group>
       <mesh geometry={geom} material={m} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow={type === 'alu'} renderOrder={3} />
-      <Balk as="y" b={0.04} h={0.04} lengte={hm} position={[x, L.Hf + hm / 2, zm]} mat={mat.frame} />
+      {stijlen.map(z => {
+        const h = L.dakY(z + SPIE_STIJL / 2) - L.lH - 0.004 - L.Hf
+        return <Balk key={z} as="y" b={L.zijBalk} h={SPIE_STIJL} lengte={h} position={[x, L.Hf + h / 2, z]} mat={mat.frame} />
+      })}
     </group>
   )
 }

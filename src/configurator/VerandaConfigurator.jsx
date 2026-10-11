@@ -4,12 +4,12 @@ import { Foutgrens } from './scene/Foutgrens.jsx'
 import Zijdekiezer, { WAND_KLEUR, AfvoerDruppel } from './Zijdekiezer.jsx'
 import {
   STAPPEN, MODELLEN, BEVESTIGINGEN, MAAT_LABELS, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN,
-  OPEN_RICHTINGEN, SPIE_TYPES, DOEK_KLEUREN, ZONWERING, SPOTS_OPTIES, ZIJDES,
+  OPEN_RICHTINGEN, PUI_DELEN, SPIE_TYPES, DOEK_KLEUREN, ZONWERING, SPOTS_OPTIES, ZIJDES,
   AFVOER, AFVOER_UITLOPEN, VLOEREN, EXTRA_PRIJZEN,
   STANDAARD_CONFIG, TOON_PRIJZEN, vind, maatGrenzen, begrensMaten,
 } from './options.js'
 import {
-  maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels,
+  maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, puiDelenOptie, autoPuiDelen, puiVleugelBreedte,
   afvoerMinimum, afvoerAdvies, afvoerOpties, begrensAfvoer, AFVOER_KANT_TEKST,
 } from './layout.js'
 import { berekenOfferte, euro, koppelTekst } from './pricing.js'
@@ -428,6 +428,8 @@ export default function VerandaConfigurator() {
 
   const zetWand = patch => {
     const nieuw = { ...actieveWand, ...patch }
+    // 'Automatisch' = geen vaste keuze opslaan (zo blijft de standaardconfiguratie herkenbaar).
+    if (nieuw.delen === 'auto') delete nieuw.delen
     // Via zet(): een nieuwe zij- of voorwand kan een uitlooprichting van de afvoer onmogelijk maken.
     zet(c => {
       const wanden = { ...c.wanden }
@@ -441,7 +443,7 @@ export default function VerandaConfigurator() {
       return { wanden }
     })
     const type = vind(WAND_TYPES, nieuw.type)
-    if (type.bedienbaar && (patch.type || patch.richting)) demo(wandPad(geselecteerdeSlots.map(s => s.key)), 0, 1, 900)
+    if (type.bedienbaar && (patch.type || patch.richting || patch.delen)) demo(wandPad(geselecteerdeSlots.map(s => s.key)), 0, 1, 900)
   }
 
   const kiesZijde = (z, v = 'alle') => {
@@ -776,18 +778,35 @@ export default function VerandaConfigurator() {
                     <div className="vc-info">{geselecteerdeSlots.map(s => `${aantalSchuifPanelen(s.lengte)} panelen`).filter((v, i, a) => a.indexOf(v) === i).join(' / ')} · 10 mm gehard veiligheidsglas · onder- en bovenrail in framekleur</div>
                   </>
                 )}
-                {actieveWand?.type === 'schuifpui' && (
-                  <>
-                    {geselecteerdeSlots.every(s => aantalPuiVleugels(s.lengte) === 2) ? (
-                      <>
-                        <div className="vc-groep-titel">Schuivende vleugel</div>
-                        <Chips opties={OPEN_RICHTINGEN.filter(o => o.id !== 'midden')} waarde={actieveWand.richting === 'rechts' ? 'rechts' : 'links'} onChange={richting => zetWand({ richting })} />
-                      </>
-                    ) : (
-                      <div className="vc-info">4-delige pui: de twee middelste vleugels schuiven naar buiten weg.</div>
-                    )}
-                  </>
-                )}
+                {actieveWand?.type === 'schuifpui' && (() => {
+                  const keuze = actieveWand.delen ?? 'auto'
+                  const uniek = lijst => lijst.filter((v, i, a) => a.indexOf(v) === i)
+                  const aantallen = uniek(geselecteerdeSlots.map(s => aantalPuiVleugels(s.lengte, keuze)))
+                  const vleugels = uniek(geselecteerdeSlots.map(s => Math.round(puiVleugelBreedte(s.lengte, aantalPuiVleugels(s.lengte, keuze)) * 100)))
+                  const opties = PUI_DELEN.map(o => {
+                    if (o.id === 'auto') return { ...o, label: `Automatisch (${uniek(geselecteerdeSlots.map(s => autoPuiDelen(s.lengte))).join('/')}-delig)` }
+                    const fout = geselecteerdeSlots.map(s => puiDelenOptie(s.lengte, o.id)).find(c => !c.mogelijk)
+                    return { ...o, disabled: !!fout, reden: fout ? `Niet mogelijk bij deze breedte: ${fout.reden}.` : undefined }
+                  })
+                  const UITLEG = {
+                    2: '2-delig: 1 vaste en 1 schuivende vleugel',
+                    3: '3-delig: 1 vaste en 2 schuivende vleugels op 3 sporen',
+                    4: '4-delig: de buitenste vleugels staan vast, de twee middelste schuiven naar buiten weg',
+                  }
+                  return (
+                    <>
+                      <div className="vc-groep-titel">Aantal delen</div>
+                      <Chips opties={opties} waarde={keuze} onChange={delen => zetWand({ delen })} />
+                      {aantallen.some(n => n !== 4) && (
+                        <>
+                          <div className="vc-groep-titel">Schuifrichting</div>
+                          <Chips opties={OPEN_RICHTINGEN.filter(o => o.id !== 'midden')} waarde={actieveWand.richting === 'rechts' ? 'rechts' : 'links'} onChange={richting => zetWand({ richting })} />
+                        </>
+                      )}
+                      <div className="vc-info">{aantallen.map(n => UITLEG[n]).join(' / ')} · vleugels van {vleugels.join(' / ')} cm · kozijn 70 mm, HR++ glas</div>
+                    </>
+                  )
+                })()}
 
                 {geselecteerdeSlots.some(s => vind(WAND_TYPES, wandVoor(cfg, s.key)?.type).bedienbaar) && (
                   <Bedieningsknop label="Openstand"

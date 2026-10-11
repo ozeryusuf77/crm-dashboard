@@ -88,6 +88,16 @@ export const PLAAT_BREEDTE = 0.98
 // (3-spoor tot 305 cm, 4 tot 405, 5 tot 505, 6 tot 605, 7 tot 705 cm).
 export const SCHUIFWAND = { paneelMax: 1.03, overlap: 0.02, minSporen: 2, maxSporen: 7 }
 
+// Aluminium schuifpui: kozijn 70 mm, vleugels overlappen elkaar 70 mm. Een vleugel is minimaal
+// 60 en maximaal 170 cm breed. Zonder keuze ('auto'): 2-delig tot 320 cm, daarboven 4-delig.
+export const SCHUIFPUI = { kozijn: 0.07, overlap: 0.07, vleugelMin: 0.6, vleugelMax: 1.7, autoGrens: 3.2 }
+export const PUI_DELEN = [
+  { id: 'auto', label: 'Automatisch', sub: '2-delig tot 320 cm, daarboven 4-delig' },
+  { id: 2, label: '2-delig', sub: '1 vaste en 1 schuivende vleugel, 2 sporen' },
+  { id: 3, label: '3-delig', sub: '1 vaste en 2 schuivende vleugels, 3 sporen' },
+  { id: 4, label: '4-delig', sub: 'Buitenste vleugels vast, de middelste twee schuiven naar buiten' },
+]
+
 export const KLEUREN = [
   { id: 'ral7016', label: 'Antraciet', ral: 'RAL 7016', hex: '#34393c' },
   { id: 'ral9005', label: 'Zwart',     ral: 'RAL 9005', hex: '#131415' },

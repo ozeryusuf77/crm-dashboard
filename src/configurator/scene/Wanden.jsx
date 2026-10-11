@@ -6,8 +6,8 @@ import { useFrame } from '@react-three/fiber'
 import { RoundedBox } from '@react-three/drei'
 import { useMat, paneelVoor } from './materials.js'
 import { useAnim, klikbaar } from './anim.js'
-import { aantalSchuifPanelen, aantalPuiVleugels } from '../layout.js'
-import { SCHUIFWAND } from '../options.js'
+import { aantalSchuifPanelen, aantalPuiVleugels, puiVleugelBreedte } from '../layout.js'
+import { SCHUIFWAND, SCHUIFPUI } from '../options.js'
 import { MOBIEL } from './kwaliteit.js'
 
 // Rails, kozijnen en profielen: box met 3 mm afgeronde langskanten, zodat de randen
@@ -134,20 +134,35 @@ function Vleugel({ b, h, mat, greep }) {
   )
 }
 
-function Schuifpui({ lengte, hoogte, open, richting }) {
+// 2-, 3- of 4-delig: cfg `delen`, via aantalPuiVleugels begrensd op de vleugelmaten (anders de
+// automatische keuze). Spoor 0 is het buitenste spoor (+z); een vleugel die over een andere heen
+// schuift loopt op een spoor daarbinnen. Sporen liggen 60 mm uit elkaar (vleugel 55 mm diep).
+const SPOOR = 0.06
+function Schuifpui({ lengte, hoogte, open, richting, delen }) {
   const mat = useMat()
-  const fp = 0.07, diep = 0.13
+  const fp = SCHUIFPUI.kozijn
+  const n = aantalPuiVleugels(lengte, delen)
+  const sporen = n === 3 ? 3 : 2
+  const diep = 0.07 + sporen * SPOOR          // kozijndiepte: 2 sporen 130 mm, 3 sporen 190 mm (nog net 2 vlakken)
   const li = lengte - 2 * fp
-  const n = aantalPuiVleugels(lengte)
-  const overlap = 0.07
-  const sw = (li + (n - 1) * overlap) / n
+  const sw = puiVleugelBreedte(lengte, n)
   const sh = hoogte - fp - 0.06
-  const dicht = i => -li / 2 + sw / 2 + i * (sw - overlap)
+  const dicht = i => -li / 2 + sw / 2 + i * (sw - SCHUIFPUI.overlap)
+  const naarRechts = richting === 'rechts'
 
-  // Welke vleugels schuiven en waar naartoe?
-  let bewegend
-  if (n === 4) bewegend = { 1: dicht(0), 2: dicht(3) }
-  else bewegend = richting === 'rechts' ? { 0: dicht(1) } : { 1: dicht(0) }
+  // Welke vleugels schuiven, waarheen, en op welk spoor ze lopen.
+  let bewegend, spoor
+  if (n === 4) {
+    bewegend = { 1: dicht(0), 2: dicht(3) }                  // buitenste vast, middelste naar buiten
+    spoor = [0, 1, 1, 0]
+  } else if (n === 3) {
+    bewegend = naarRechts ? { 0: dicht(2), 1: dicht(2) } : { 1: dicht(0), 2: dicht(0) }
+    spoor = naarRechts ? [2, 1, 0] : [0, 1, 2]              // de verste vleugel loopt op het binnenste spoor
+  } else {
+    bewegend = naarRechts ? { 0: dicht(1) } : { 1: dicht(0) }
+    spoor = naarRechts ? [1, 0] : [0, 1]
+  }
+  const spoorZ = i => ((sporen - 1) / 2 - spoor[i]) * SPOOR
 
   const refs = useRef([])
   useAnim(open, t => {
@@ -164,10 +179,10 @@ function Schuifpui({ lengte, hoogte, open, richting }) {
       <Box args={[fp, hoogte, diep]} position={[lengte / 2 - fp / 2, hoogte / 2, 0]} mat={mat.frame} />
       {Array.from({ length: n }, (_, i) => {
         const beweegt = bewegend[i] !== undefined
-        // Greep aan de kant waar je de vleugel vastpakt (weg van de schuifrichting).
+        // Greep op de sluitstijl: de kant waar je de vleugel vastpakt (weg van de schuifrichting).
         const greep = beweegt ? (bewegend[i] < dicht(i) ? 1 : -1) : undefined
         return (
-          <group key={i} ref={el => (refs.current[i] = el)} position={[dicht(i), 0.06, beweegt ? -0.03 : 0.03]}>
+          <group key={`${n}-${i}`} ref={el => (refs.current[i] = el)} position={[dicht(i), 0.06, spoorZ(i)]}>
             <Vleugel b={sw} h={sh} mat={mat} greep={greep} />
           </group>
         )
@@ -185,6 +200,10 @@ function VastGlas({ lengte, hoogte, glas }) {
     <group>
       <Box args={[lengte, 0.05, 0.06]} position={[0, hoogte - 0.025, 0]} mat={mat.frame} />
       <Box args={[lengte, 0.04, 0.06]} position={[0, 0.02, 0]} mat={mat.frame} />
+      {/* Eindstijlen (aansluitprofiel tegen staander of gevel) en tussenstijlen */}
+      {[-1, 1].map(s => (
+        <Box key={`e${s}`} args={[0.035, hoogte - 0.09, 0.05]} position={[s * (lengte / 2 - 0.0175), hoogte / 2, 0]} mat={mat.frame} />
+      ))}
       {Array.from({ length: n - 1 }, (_, i) => (
         <Box key={i} args={[0.035, hoogte - 0.09, 0.05]} position={[-lengte / 2 + b * (i + 1), hoogte / 2, 0]} mat={mat.frame} />
       ))}
@@ -198,18 +217,41 @@ function VastGlas({ lengte, hoogte, glas }) {
 }
 
 // ─── Dichte aluminium (rabat) wand ───────────────────────────────────────────
+// Vlakke rabatdelen (16 cm hart-op-hart) in een omlijsting van boven-, onder- en eindprofiel.
+// Tussen de delen zit een 6 mm diepe schaduwvoeg (donkere strip, 13 mm teruggezet) en achter
+// de delen een gesloten plaat: er is nergens een kier om doorheen te kijken, van buiten noch binnen.
 function DichteWand({ lengte, hoogte }) {
   const mat = useMat()
-  const plank = 0.16
-  const n = Math.ceil(hoogte / plank)
+  const boven = 0.05, onder = 0.04, stijl = 0.04, diep = 0.06
+  const steek = 0.16, voeg = 0.006
+  const vulB = lengte - 2 * stijl
+  const vulH = hoogte - boven - onder
+  const n = Math.max(1, Math.ceil(vulH / steek - 1e-9))
   return (
     <group>
+      <Box args={[lengte, boven, diep]} position={[0, hoogte - boven / 2, 0]} mat={mat.frame} />
+      <Box args={[lengte, onder, diep]} position={[0, onder / 2, 0]} mat={mat.frame} />
+      {[-1, 1].map(s => (
+        <Box key={s} args={[stijl, vulH, diep]} position={[s * (lengte / 2 - stijl / 2), onder + vulH / 2, 0]} mat={mat.frame} />
+      ))}
+      {/* Gesloten achterplaat (de binnenzijde van de wand), binnen de omlijsting */}
+      <mesh material={mat.frame} position={[0, onder + vulH / 2, -0.016]} castShadow receiveShadow>
+        <boxGeometry args={[vulB + 0.002, vulH + 0.002, 0.012]} />
+      </mesh>
       {Array.from({ length: n }, (_, i) => {
-        const h = Math.min(plank, hoogte - i * plank)
+        const y0 = onder + i * steek
+        const y1 = Math.min(hoogte - boven, y0 + steek - (i < n - 1 ? voeg : 0))
         return (
-          <mesh key={i} material={mat.frame} position={[0, i * plank + h / 2, 0.006]} rotation={[-0.05, 0, 0]} castShadow receiveShadow>
-            <boxGeometry args={[lengte, h - 0.004, 0.022]} />
-          </mesh>
+          <group key={i}>
+            <mesh material={mat.frame} position={[0, (y0 + y1) / 2, 0.005]} castShadow receiveShadow>
+              <boxGeometry args={[vulB, y1 - y0, 0.02]} />
+            </mesh>
+            {i < n - 1 && (
+              <mesh material={mat.rubber} position={[0, y1 + voeg / 2, -0.002]} receiveShadow>
+                <boxGeometry args={[vulB, voeg + 0.004, 0.008]} />
+              </mesh>
+            )}
+          </group>
         )
       })}
     </group>
@@ -222,7 +264,7 @@ export function Wand({ w, lengte, hoogte, open, onToggle, position, rotation, ku
   if (!w || w.type === 'open') return null
   let inhoud = null
   if (w.type === 'schuifwand') inhoud = <Schuifwand lengte={lengte} hoogte={hoogte} open={open} glas={w.glas} richting={w.richting} kubus={kubus} />
-  if (w.type === 'schuifpui') inhoud = <Schuifpui lengte={lengte} hoogte={hoogte} open={open} richting={w.richting} />
+  if (w.type === 'schuifpui') inhoud = <Schuifpui lengte={lengte} hoogte={hoogte} open={open} richting={w.richting} delen={w.delen} />
   if (w.type === 'vastglas') inhoud = <VastGlas lengte={lengte} hoogte={hoogte} glas={w.glas} />
   if (w.type === 'dicht') inhoud = <DichteWand lengte={lengte} hoogte={hoogte} />
   const bedienbaar = w.type === 'schuifwand' || w.type === 'schuifpui'

@@ -2,7 +2,7 @@ import {
   MODELLEN, BEVESTIGINGEN, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN, SPIE_TYPES,
   DOEK_KLEUREN, ZONWERING, EXTRA_PRIJZEN, OPEN_RICHTINGEN, AFVOER_RICHTINGEN, AFVOER, vind,
 } from './options.js'
-import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, screensPerVak, AFVOER_KANT_TEKST } from './layout.js'
+import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, puiVleugelBreedte, screensPerVak, AFVOER_KANT_TEKST } from './layout.js'
 
 const ZIJDE_LABEL = { voor: 'Voorzijde', links: 'Linkerzijde', rechts: 'Rechterzijde', achter: 'Achterzijde' }
 
@@ -100,7 +100,10 @@ export function berekenOfferte(cfg) {
       ? (L.vakken.length > 1 ? ` vak ${slot.vak + 1}` : '') : ''
     let detail = `${Math.round(slot.lengte * 100)} cm`
     if (w.type === 'schuifwand') detail += ` · ${aantalSchuifPanelen(slot.lengte)} panelen · ${glas.label.toLowerCase()} · ${vind(OPEN_RICHTINGEN, w.richting).label.toLowerCase()}`
-    if (w.type === 'schuifpui') detail += ` · ${aantalPuiVleugels(slot.lengte)} vleugels`
+    if (w.type === 'schuifpui') {
+      const n = aantalPuiVleugels(slot.lengte, w.delen)
+      detail += ` · ${n}-delig · vleugels ${Math.round(puiVleugelBreedte(slot.lengte, n) * 100)} cm`
+    }
     if (w.type === 'vastglas') detail += ` · ${glas.label.toLowerCase()}`
     regels.push({
       label: `${type.label} — ${ZIJDE_LABEL[slot.zijde]}${vakTekst}`,
