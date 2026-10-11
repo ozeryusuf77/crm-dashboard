@@ -257,7 +257,8 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
       // met een clipvlak per materiaal. De exposure geldt ook voor de ToneMapping-pass van de
       // nabewerking (three zet toneMappingExposure in elk programma met die uniform).
       gl={{ antialias: true, powerPreference: 'high-performance', localClippingEnabled: true }}
-      onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.15 }}
+      // Desktop iets hoger: de nabewerking (AO + vignet) kost daar ±8 % licht t.o.v. de mobiele tier.
+      onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = MOBIEL ? 1.15 : 1.22 }}
       onPointerMissed={() => { document.body.style.cursor = '' }}
     >
       {/* Geen monitor bij een geforceerde tier (?kwaliteit=hoog|laag) en niet op mobiel (daar is

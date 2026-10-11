@@ -29,7 +29,7 @@ const SCHUTTING_VAN_GEVEL = 0.1                          // zijschuttingen begin
 const HOUT_HERHALING = 1.2     // 1 herhaling van de hout-fotoset (Poly Haven "Oak Wood Planks")
 const HOUT = '#9c8a6c'         // verweerd grijsbruin (hardhout na een paar seizoenen) over de eiken foto
 const BETON = '#9a9893'
-const GROND = '#3b2e24'
+const GROND = '#5b5a4a'
 const BORDER_B = 0.7
 const PAD_B = 1.4, PAD_SMAL = 0.75, PAD_Y = 0.005, PAD_VAN_SCHUTTING = 0.05
 const KEIEN = 0.72             // 1 herhaling van kinderkopjes() = 6 keien van 12 cm

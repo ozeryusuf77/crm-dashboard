@@ -186,9 +186,11 @@ export function useMaterialen(cfg) {
       pvc: new THREE.MeshStandardMaterial({ color: '#b9bec3', roughness: 0.5, side: THREE.DoubleSide }),
       // Zwart-aluminium komgreep/handgreep van schuifwanden.
       greep: new THREE.MeshStandardMaterial({ color: '#3a3d42', metalness: 0.8, roughness: 0.3 }),
-      // Schaduw-dither voor dakplaten: helder glas/poly 30 %, opaal/mat 75 % dekking.
-      dakDiepte: new DakDiepteMateriaal({ dekking: 0.3 }),
-      dakDiepteOpaal: new DakDiepteMateriaal({ dekking: 0.75 }),
+      // Schaduw-dither voor heldere dakplaten (30 % dekking, raster 12 mm: fijn genoeg om door
+      // PCSS tot een egale lichte schaduw te worden uitgesmeerd). Ondoorzichtige daktypes
+      // werpen volle schaduw zonder dither; dakDiepteOpaal blijft beschikbaar.
+      dakDiepte: new DakDiepteMateriaal({ dekking: 0.3, raster: 0.012 }),
+      dakDiepteOpaal: new DakDiepteMateriaal({ dekking: 0.75, raster: 0.012 }),
     }
   }, [])
   useEffect(() => () => {

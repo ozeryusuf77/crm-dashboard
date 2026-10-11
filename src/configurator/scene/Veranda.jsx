@@ -418,11 +418,12 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
 
   const hVoor = Hf
   const hAchter = L.achterBalkOnder
-  // Dakschaduw: helder glas/poly werpt via het dither-dieptemateriaal een lichte schaduw,
-  // opaal/mat een zwaardere; op mobiel (PCF, geen PCSS) alleen de ondoorzichtige daktypes.
-  const dakSchaduw = MOBIEL ? { castShadow: mat.dakSchaduw } : {
-    castShadow: true, customDepthMaterial: mat.dakSchaduw ? mat.dakDiepteOpaal : mat.dakDiepte,
-  }
+  // Dakschaduw: ondoorzichtig dak (opaal/IR/mat) werpt gewoon volle schaduw; helder glas/poly
+  // werpt via het fijne dither-dieptemateriaal een lichte schaduw die PCSS uitsmeert.
+  // Op mobiel (PCF, geen PCSS) alleen de ondoorzichtige daktypes.
+  const dakSchaduw = MOBIEL ? { castShadow: mat.dakSchaduw }
+    : mat.dakSchaduw ? { castShadow: true }
+      : { castShadow: true, customDepthMaterial: mat.dakDiepte }
   const afvoerBij = x => afvoeren.find(a => Math.abs(a.x - x) < 1e-6)
   const nStaanders = L.xStaanders.length
   // Eén stabiel clipvlak per afvoer (gedeeld door Staander en AfvoerInStaander); de Staander
