@@ -1,0 +1,403 @@
+{
+  "asset": {
+    "generator": "naar-gltf.mjs (gltf-transform 4.5), verandaconfigurator",
+    "version": "2.0",
+    "copyright": "CC0 1.0 - Poly Haven (https://polyhaven.com/a/outdoor_table_chair_set_01)",
+    "extras": {
+      "bron": "https://polyhaven.com/a/outdoor_table_chair_set_01",
+      "licentie": "CC0 1.0 Universal (Poly Haven)",
+      "auteur": "Poly Haven",
+      "bewerking": "lichte variant voor mobiel (512 px, extra vereenvoudigd)",
+      "omzetting": "bouw.mjs (GLB) -> naar-gltf.mjs: .gltf + losse .bin en jpg/png, alles same-origin (geen blob- of data-URI)"
+    }
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 7296,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 5478,
+      "bufferView": 0,
+      "byteOffset": 14592
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 7224,
+      "bufferView": 0,
+      "byteOffset": 25548
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3653,
+      "max": [
+        18022,
+        32767,
+        22882
+      ],
+      "min": [
+        -18022,
+        -32767,
+        -22882
+      ],
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 3653,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3653,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3004,
+      "max": [
+        31223,
+        32767,
+        31231
+      ],
+      "min": [
+        -31223,
+        -32767,
+        -31231
+      ],
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 3004,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3004,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3625,
+      "max": [
+        22830,
+        32767,
+        25635
+      ],
+      "min": [
+        -22830,
+        -32767,
+        -25635
+      ],
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 3625,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3625,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 12
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 39996,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 39996,
+      "byteLength": 58448,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 98444,
+      "byteLength": 48064,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 146508,
+      "byteLength": 58000,
+      "byteStride": 16,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    },
+    {
+      "source": 4,
+      "sampler": 0
+    },
+    {
+      "source": 3,
+      "sampler": 0
+    },
+    {
+      "source": 5,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "outdoor_table_chair_set_01_chair_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_stoel_normaal.jpg"
+    },
+    {
+      "name": "outdoor_table_chair_set_01_chair_diff",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_stoel_kleur.jpg"
+    },
+    {
+      "name": "outdoor_table_chair_set_01_chair_metal-outdoor_table_chair_set_01_chair_rough",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_stoel_ruwheid.jpg"
+    },
+    {
+      "name": "outdoor_table_chair_set_01_table_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_tafel_normaal.jpg"
+    },
+    {
+      "name": "outdoor_table_chair_set_01_table_diff",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_tafel_kleur.jpg"
+    },
+    {
+      "name": "outdoor_table_chair_set_01_table_metal-outdoor_table_chair_set_01_table_rough",
+      "mimeType": "image/jpeg",
+      "uri": "tuinset_bistro_tafel_ruwheid.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "tuinset_bistro.bin",
+      "byteLength": 204508
+    }
+  ],
+  "materials": [
+    {
+      "name": "outdoor_table_chair_set_01_chair",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    },
+    {
+      "name": "outdoor_table_chair_set_01_table",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 3
+        },
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      },
+      "normalTexture": {
+        "index": 4
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Folding_Chair_Wood",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4,
+            "TEXCOORD_0": 5
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    },
+    {
+      "name": "Folding_Table_Wood.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7,
+            "TEXCOORD_0": 8
+          },
+          "mode": 4,
+          "material": 1,
+          "indices": 1
+        }
+      ]
+    },
+    {
+      "name": "Folding_Chair_Wood.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 9,
+            "NORMAL": 10,
+            "TEXCOORD_0": 11
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 2
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "outdoor_table_chair_set_01_chair_01",
+      "translation": [
+        0.029563735892445292,
+        0.42282884661108255,
+        0.5737240290665685
+      ],
+      "rotation": [
+        0,
+        0.12110016776311884,
+        0,
+        0.9926402920331939
+      ],
+      "scale": [
+        0.4287663769408465,
+        0.42876637633889914,
+        0.4287663769408465
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "outdoor_table_chair_set_01_table",
+      "translation": [
+        -0.07966580986976624,
+        0.36296091785616547,
+        0.07106216251850128
+      ],
+      "scale": [
+        0.36296095142178864,
+        0.36296095142178864,
+        0.36296095142178864
+      ],
+      "mesh": 1
+    },
+    {
+      "name": "outdoor_table_chair_set_01_chair_02",
+      "translation": [
+        -0.06838556545602026,
+        0.42282884661108255,
+        -0.5065987152693494
+      ],
+      "rotation": [
+        0,
+        0.13368111547254555,
+        0,
+        0.9910243989761381
+      ],
+      "scale": [
+        0.42876637562184017,
+        0.42876637633889914,
+        0.42876637562184017
+      ],
+      "mesh": 2
+    },
+    {
+      "name": "tuinset_bistro",
+      "translation": [
+        0.054674763086691586,
+        0.005937529727816582,
+        -0.047809722652310094
+      ],
+      "children": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        3
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "KHR_mesh_quantization"
+  ]
+}

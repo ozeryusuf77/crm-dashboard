@@ -1,0 +1,948 @@
+{
+ "versie": 1,
+ "gemaakt": "2026-10-11",
+ "omschrijving": "Rekwisietmodellen voor de verandaconfigurator als .gltf + losse .bin en jpg/png (same-origin, geen blob:/data:, geen decoders). Laden met three's GLTFLoader via modelUrl(naam, set).",
+ "pad": "modellen/<naam>/<naam>.gltf (set hoog, desktop) en modellen/laag/<naam>/<naam>.gltf (set laag, mobiel)",
+ "licentie": "CC0 1.0 Universal (Poly Haven) — zie LICENTIE.txt",
+ "eenheid": "meter; voet op y=0; schaal 1 = werkelijke maat",
+ "totaalKb": {
+  "hoog": 9450,
+  "laag": 3663
+ },
+ "modellen": {
+  "boom_loofboom": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/boom_loofboom/boom_loofboom.gltf",
+    "laag": "modellen/laag/boom_loofboom/boom_loofboom.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "boom_loofboom.gltf",
+     "boom_loofboom.bin",
+     "boom_loofboom_blad_kleur.png",
+     "boom_loofboom_blad_normaal.jpg",
+     "boom_loofboom_blad_ruwheid.jpg",
+     "boom_loofboom_stam_kleur.jpg",
+     "boom_loofboom_stam_normaal.jpg",
+     "boom_loofboom_stam_ruwheid.jpg",
+     "boom_loofboom_takken_kleur.jpg",
+     "boom_loofboom_takken_normaal.jpg",
+     "boom_loofboom_takken_ruwheid.jpg"
+    ],
+    "laag": [
+     "boom_loofboom.gltf",
+     "boom_loofboom.bin",
+     "boom_loofboom_blad_kleur.png",
+     "boom_loofboom_blad_normaal.jpg",
+     "boom_loofboom_blad_ruwheid.jpg",
+     "boom_loofboom_stam_kleur.jpg",
+     "boom_loofboom_stam_normaal.jpg",
+     "boom_loofboom_stam_ruwheid.jpg",
+     "boom_loofboom_takken_kleur.jpg",
+     "boom_loofboom_takken_normaal.jpg",
+     "boom_loofboom_takken_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "boom_loofboom.gltf": 9,
+     "boom_loofboom.bin": 1139,
+     "boom_loofboom_blad_kleur.png": 127,
+     "boom_loofboom_blad_normaal.jpg": 78,
+     "boom_loofboom_blad_ruwheid.jpg": 28,
+     "boom_loofboom_stam_kleur.jpg": 181,
+     "boom_loofboom_stam_normaal.jpg": 166,
+     "boom_loofboom_stam_ruwheid.jpg": 31,
+     "boom_loofboom_takken_kleur.jpg": 34,
+     "boom_loofboom_takken_normaal.jpg": 101,
+     "boom_loofboom_takken_ruwheid.jpg": 19
+    },
+    "laag": {
+     "boom_loofboom.gltf": 9,
+     "boom_loofboom.bin": 711,
+     "boom_loofboom_blad_kleur.png": 43,
+     "boom_loofboom_blad_normaal.jpg": 26,
+     "boom_loofboom_blad_ruwheid.jpg": 9,
+     "boom_loofboom_stam_kleur.jpg": 48,
+     "boom_loofboom_stam_normaal.jpg": 42,
+     "boom_loofboom_stam_ruwheid.jpg": 9,
+     "boom_loofboom_takken_kleur.jpg": 11,
+     "boom_loofboom_takken_normaal.jpg": 35,
+     "boom_loofboom_takken_ruwheid.jpg": 6
+    }
+   },
+   "kb": {
+    "hoog": 1914,
+    "laag": 949
+   },
+   "verts": {
+    "hoog": 56947,
+    "laag": 35790
+   },
+   "tris": {
+    "hoog": 42498,
+    "laag": 25896
+   },
+   "bbox": {
+    "hoog": [
+     2.947,
+     4.577,
+     4.284
+    ],
+    "laag": [
+     2.934,
+     4.589,
+     4.288
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0.145,
+     0.761
+    ],
+    "omschrijving": "stamvoet op y=0; x/z op het midden van de stamvoet (kroon hangt naar +z, draai rond y voor afwisseling)"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    0.9,
+    1.3
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization",
+     "KHR_texture_transform"
+    ],
+    "laag": [
+     "KHR_mesh_quantization",
+     "KHR_texture_transform"
+    ]
+   },
+   "materialen": [
+    "tree_small_02_branches:OPAQUE:2z",
+    "tree_small_02_leaves:MASK@0.5:2z",
+    "tree_small_02_trunk:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/tree_small_02",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "loofboom op 5–15 m van de camera (achter de schutting / in de tuin)"
+  },
+  "struik_groot": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/struik_groot/struik_groot.gltf",
+    "laag": "modellen/laag/struik_groot/struik_groot.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "struik_groot.gltf",
+     "struik_groot.bin",
+     "struik_groot_kleur.png",
+     "struik_groot_normaal.jpg",
+     "struik_groot_ruwheid.jpg"
+    ],
+    "laag": [
+     "struik_groot.gltf",
+     "struik_groot.bin",
+     "struik_groot_kleur.png",
+     "struik_groot_normaal.jpg",
+     "struik_groot_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "struik_groot.gltf": 6,
+     "struik_groot.bin": 791,
+     "struik_groot_kleur.png": 392,
+     "struik_groot_normaal.jpg": 103,
+     "struik_groot_ruwheid.jpg": 101
+    },
+    "laag": {
+     "struik_groot.gltf": 6,
+     "struik_groot.bin": 313,
+     "struik_groot_kleur.png": 107,
+     "struik_groot_normaal.jpg": 31,
+     "struik_groot_ruwheid.jpg": 12
+    }
+   },
+   "kb": {
+    "hoog": 1392,
+    "laag": 469
+   },
+   "verts": {
+    "hoog": 39283,
+    "laag": 15375
+   },
+   "tris": {
+    "hoog": 30239,
+    "laag": 12358
+   },
+   "bbox": {
+    "hoog": [
+     1.095,
+     1.423,
+     0.954
+    ],
+    "laag": [
+     1.113,
+     1.43,
+     0.925
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    0.8,
+    1.2
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "searsia_lucida:OPAQUE:2z",
+    "searsia_lucida_leaves:MASK@0.5:2z"
+   ],
+   "bron": "https://polyhaven.com/a/searsia_lucida",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "grote sierheester naast het terras of bij de schutting"
+  },
+  "struik_klein": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/struik_klein/struik_klein.gltf",
+    "laag": "modellen/laag/struik_klein/struik_klein.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "struik_klein.gltf",
+     "struik_klein.bin",
+     "struik_klein_kleur.png",
+     "struik_klein_normaal.jpg",
+     "struik_klein_ruwheid.jpg"
+    ],
+    "laag": [
+     "struik_klein.gltf",
+     "struik_klein.bin",
+     "struik_klein_kleur.png",
+     "struik_klein_normaal.jpg",
+     "struik_klein_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "struik_klein.gltf": 6,
+     "struik_klein.bin": 512,
+     "struik_klein_kleur.png": 392,
+     "struik_klein_normaal.jpg": 103,
+     "struik_klein_ruwheid.jpg": 101
+    },
+    "laag": {
+     "struik_klein.gltf": 6,
+     "struik_klein.bin": 176,
+     "struik_klein_kleur.png": 107,
+     "struik_klein_normaal.jpg": 31,
+     "struik_klein_ruwheid.jpg": 12
+    }
+   },
+   "kb": {
+    "hoog": 1113,
+    "laag": 332
+   },
+   "verts": {
+    "hoog": 25359,
+    "laag": 8639
+   },
+   "tris": {
+    "hoog": 19757,
+    "laag": 6966
+   },
+   "bbox": {
+    "hoog": [
+     1.034,
+     1.024,
+     0.716
+    ],
+    "laag": [
+     1.036,
+     1.019,
+     0.72
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    0.9,
+    1.2
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "searsia_lucida:OPAQUE:2z",
+    "searsia_lucida_leaves:MASK@0.5:2z"
+   ],
+   "bron": "https://polyhaven.com/a/searsia_lucida",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "middelgrote struik, in groepjes van 2–3 met verschillende rotatie"
+  },
+  "struik_laag": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/struik_laag/struik_laag.gltf",
+    "laag": "modellen/laag/struik_laag/struik_laag.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "struik_laag.gltf",
+     "struik_laag.bin",
+     "struik_laag_kleur.png",
+     "struik_laag_normaal.jpg",
+     "struik_laag_ruwheid.jpg"
+    ],
+    "laag": [
+     "struik_laag.gltf",
+     "struik_laag.bin",
+     "struik_laag_kleur.png",
+     "struik_laag_normaal.jpg",
+     "struik_laag_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "struik_laag.gltf": 6,
+     "struik_laag.bin": 331,
+     "struik_laag_kleur.png": 334,
+     "struik_laag_normaal.jpg": 51,
+     "struik_laag_ruwheid.jpg": 14
+    },
+    "laag": {
+     "struik_laag.gltf": 6,
+     "struik_laag.bin": 166,
+     "struik_laag_kleur.png": 90,
+     "struik_laag_normaal.jpg": 12,
+     "struik_laag_ruwheid.jpg": 5
+    }
+   },
+   "kb": {
+    "hoog": 736,
+    "laag": 279
+   },
+   "verts": {
+    "hoog": 16227,
+    "laag": 8276
+   },
+   "tris": {
+    "hoog": 13151,
+    "laag": 6326
+   },
+   "bbox": {
+    "hoog": [
+     0.697,
+     0.539,
+     0.843
+    ],
+    "laag": [
+     0.708,
+     0.543,
+     0.85
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1.3
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "wild_rooibos_bush_twigs:MASK@0.5:2z",
+    "wild_rooibos_bush:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/wild_rooibos_bush",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "lage sierstruik in border of plantenbak (in plantenbak_hout op y ≈ 0,35)"
+  },
+  "potplant_hoog": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/potplant_hoog/potplant_hoog.gltf",
+    "laag": "modellen/laag/potplant_hoog/potplant_hoog.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "potplant_hoog.gltf",
+     "potplant_hoog.bin",
+     "potplant_hoog_blad_kleur.jpg",
+     "potplant_hoog_blad_normaal.jpg",
+     "potplant_hoog_blad_ruwheid.jpg",
+     "potplant_hoog_pot_kleur.jpg",
+     "potplant_hoog_pot_normaal.jpg",
+     "potplant_hoog_pot_ruwheid.jpg"
+    ],
+    "laag": [
+     "potplant_hoog.gltf",
+     "potplant_hoog.bin",
+     "potplant_hoog_blad_kleur.jpg",
+     "potplant_hoog_blad_normaal.jpg",
+     "potplant_hoog_blad_ruwheid.jpg",
+     "potplant_hoog_pot_kleur.jpg",
+     "potplant_hoog_pot_normaal.jpg",
+     "potplant_hoog_pot_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "potplant_hoog.gltf": 9,
+     "potplant_hoog.bin": 913,
+     "potplant_hoog_blad_kleur.jpg": 84,
+     "potplant_hoog_blad_normaal.jpg": 197,
+     "potplant_hoog_blad_ruwheid.jpg": 17,
+     "potplant_hoog_pot_kleur.jpg": 135,
+     "potplant_hoog_pot_normaal.jpg": 72,
+     "potplant_hoog_pot_ruwheid.jpg": 31
+    },
+    "laag": {
+     "potplant_hoog.gltf": 9,
+     "potplant_hoog.bin": 424,
+     "potplant_hoog_blad_kleur.jpg": 30,
+     "potplant_hoog_blad_normaal.jpg": 28,
+     "potplant_hoog_blad_ruwheid.jpg": 5,
+     "potplant_hoog_pot_kleur.jpg": 38,
+     "potplant_hoog_pot_normaal.jpg": 23,
+     "potplant_hoog_pot_ruwheid.jpg": 8
+    }
+   },
+   "kb": {
+    "hoog": 1458,
+    "laag": 565
+   },
+   "verts": {
+    "hoog": 39828,
+    "laag": 19345
+   },
+   "tris": {
+    "hoog": 49668,
+    "laag": 20731
+   },
+   "bbox": {
+    "hoog": [
+     0.587,
+     1.336,
+     0.634
+    ],
+    "laag": [
+     0.587,
+     1.336,
+     0.634
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "potted_plant_01_pot:OPAQUE:2z",
+    "potted_plant_01_leaves:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/potted_plant_01",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "hoge potplant in terracotta vaas bij staander of gevel"
+  },
+  "potplant_terracotta": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/potplant_terracotta/potplant_terracotta.gltf",
+    "laag": "modellen/laag/potplant_terracotta/potplant_terracotta.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "potplant_terracotta.gltf",
+     "potplant_terracotta.bin",
+     "potplant_terracotta_blad_kleur.jpg",
+     "potplant_terracotta_blad_normaal.jpg",
+     "potplant_terracotta_blad_ruwheid.jpg",
+     "potplant_terracotta_pot_kleur.jpg",
+     "potplant_terracotta_pot_normaal.jpg",
+     "potplant_terracotta_pot_ruwheid.jpg"
+    ],
+    "laag": [
+     "potplant_terracotta.gltf",
+     "potplant_terracotta.bin",
+     "potplant_terracotta_blad_kleur.jpg",
+     "potplant_terracotta_blad_normaal.jpg",
+     "potplant_terracotta_blad_ruwheid.jpg",
+     "potplant_terracotta_pot_kleur.jpg",
+     "potplant_terracotta_pot_normaal.jpg",
+     "potplant_terracotta_pot_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "potplant_terracotta.gltf": 7,
+     "potplant_terracotta.bin": 320,
+     "potplant_terracotta_blad_kleur.jpg": 113,
+     "potplant_terracotta_blad_normaal.jpg": 152,
+     "potplant_terracotta_blad_ruwheid.jpg": 12,
+     "potplant_terracotta_pot_kleur.jpg": 92,
+     "potplant_terracotta_pot_normaal.jpg": 103,
+     "potplant_terracotta_pot_ruwheid.jpg": 20
+    },
+    "laag": {
+     "potplant_terracotta.gltf": 7,
+     "potplant_terracotta.bin": 157,
+     "potplant_terracotta_blad_kleur.jpg": 38,
+     "potplant_terracotta_blad_normaal.jpg": 24,
+     "potplant_terracotta_blad_ruwheid.jpg": 4,
+     "potplant_terracotta_pot_kleur.jpg": 26,
+     "potplant_terracotta_pot_normaal.jpg": 11,
+     "potplant_terracotta_pot_ruwheid.jpg": 6
+    }
+   },
+   "kb": {
+    "hoog": 819,
+    "laag": 274
+   },
+   "verts": {
+    "hoog": 13875,
+    "laag": 7148
+   },
+   "tris": {
+    "hoog": 17630,
+    "laag": 7779
+   },
+   "bbox": {
+    "hoog": [
+     0.701,
+     0.841,
+     0.657
+    ],
+    "laag": [
+     0.701,
+     0.841,
+     0.657
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "potted_plant_02_pot:OPAQUE:2z",
+    "potted_plant_02_leaves:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/potted_plant_02",
+   "auteur": "Poly Haven (Rico Cilliers)",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "brede terracotta pot met groot blad op het terras"
+  },
+  "tuinset_bistro": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/tuinset_bistro/tuinset_bistro.gltf",
+    "laag": "modellen/laag/tuinset_bistro/tuinset_bistro.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "tuinset_bistro.gltf",
+     "tuinset_bistro.bin",
+     "tuinset_bistro_stoel_kleur.jpg",
+     "tuinset_bistro_stoel_normaal.jpg",
+     "tuinset_bistro_stoel_ruwheid.jpg",
+     "tuinset_bistro_tafel_kleur.jpg",
+     "tuinset_bistro_tafel_normaal.jpg",
+     "tuinset_bistro_tafel_ruwheid.jpg"
+    ],
+    "laag": [
+     "tuinset_bistro.gltf",
+     "tuinset_bistro.bin",
+     "tuinset_bistro_stoel_kleur.jpg",
+     "tuinset_bistro_stoel_normaal.jpg",
+     "tuinset_bistro_stoel_ruwheid.jpg",
+     "tuinset_bistro_tafel_kleur.jpg",
+     "tuinset_bistro_tafel_normaal.jpg",
+     "tuinset_bistro_tafel_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "tuinset_bistro.gltf": 8,
+     "tuinset_bistro.bin": 252,
+     "tuinset_bistro_stoel_kleur.jpg": 109,
+     "tuinset_bistro_stoel_normaal.jpg": 57,
+     "tuinset_bistro_stoel_ruwheid.jpg": 129,
+     "tuinset_bistro_tafel_kleur.jpg": 105,
+     "tuinset_bistro_tafel_normaal.jpg": 51,
+     "tuinset_bistro_tafel_ruwheid.jpg": 140
+    },
+    "laag": {
+     "tuinset_bistro.gltf": 8,
+     "tuinset_bistro.bin": 200,
+     "tuinset_bistro_stoel_kleur.jpg": 35,
+     "tuinset_bistro_stoel_normaal.jpg": 16,
+     "tuinset_bistro_stoel_ruwheid.jpg": 44,
+     "tuinset_bistro_tafel_kleur.jpg": 33,
+     "tuinset_bistro_tafel_normaal.jpg": 15,
+     "tuinset_bistro_tafel_ruwheid.jpg": 46
+    }
+   },
+   "kb": {
+    "hoog": 851,
+    "laag": 396
+   },
+   "verts": {
+    "hoog": 12434,
+    "laag": 10282
+   },
+   "tris": {
+    "hoog": 9828,
+    "laag": 6666
+   },
+   "bbox": {
+    "hoog": [
+     0.742,
+     0.859,
+     1.717
+    ],
+    "laag": [
+     0.742,
+     0.858,
+     1.716
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0 (tafel met 2 stoelen in de z-richting)"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "outdoor_table_chair_set_01_chair:OPAQUE:2z",
+    "outdoor_table_chair_set_01_table:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/outdoor_table_chair_set_01",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "bistroset onder de veranda"
+  },
+  "tuinbank_hout": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/tuinbank_hout/tuinbank_hout.gltf",
+    "laag": "modellen/laag/tuinbank_hout/tuinbank_hout.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "tuinbank_hout.gltf",
+     "tuinbank_hout.bin",
+     "tuinbank_hout_kleur.jpg",
+     "tuinbank_hout_normaal.jpg",
+     "tuinbank_hout_ruwheid.jpg"
+    ],
+    "laag": [
+     "tuinbank_hout.gltf",
+     "tuinbank_hout.bin",
+     "tuinbank_hout_kleur.jpg",
+     "tuinbank_hout_normaal.jpg",
+     "tuinbank_hout_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "tuinbank_hout.gltf": 4,
+     "tuinbank_hout.bin": 14,
+     "tuinbank_hout_kleur.jpg": 85,
+     "tuinbank_hout_normaal.jpg": 302,
+     "tuinbank_hout_ruwheid.jpg": 91
+    },
+    "laag": {
+     "tuinbank_hout.gltf": 4,
+     "tuinbank_hout.bin": 14,
+     "tuinbank_hout_kleur.jpg": 26,
+     "tuinbank_hout_normaal.jpg": 75,
+     "tuinbank_hout_ruwheid.jpg": 30
+    }
+   },
+   "kb": {
+    "hoog": 496,
+    "laag": 149
+   },
+   "verts": {
+    "hoog": 677,
+    "laag": 677
+   },
+   "tris": {
+    "hoog": 630,
+    "laag": 630
+   },
+   "bbox": {
+    "hoog": [
+     1.165,
+     0.889,
+     0.496
+    ],
+    "laag": [
+     1.165,
+     0.889,
+     0.496
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "painted_wooden_bench:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/painted_wooden_bench",
+   "auteur": "Poly Haven (Rico Cilliers)",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "geverfd houten bankje tegen schutting of gevel"
+  },
+  "plantenbak_hout": {
+   "sets": [
+    "hoog",
+    "laag"
+   ],
+   "pad": {
+    "hoog": "modellen/plantenbak_hout/plantenbak_hout.gltf",
+    "laag": "modellen/laag/plantenbak_hout/plantenbak_hout.gltf"
+   },
+   "bestanden": {
+    "hoog": [
+     "plantenbak_hout.gltf",
+     "plantenbak_hout.bin",
+     "plantenbak_hout_kleur.jpg",
+     "plantenbak_hout_normaal.jpg",
+     "plantenbak_hout_ruwheid.jpg"
+    ],
+    "laag": [
+     "plantenbak_hout.gltf",
+     "plantenbak_hout.bin",
+     "plantenbak_hout_kleur.jpg",
+     "plantenbak_hout_normaal.jpg",
+     "plantenbak_hout_ruwheid.jpg"
+    ]
+   },
+   "kbPerBestand": {
+    "hoog": {
+     "plantenbak_hout.gltf": 4,
+     "plantenbak_hout.bin": 146,
+     "plantenbak_hout_kleur.jpg": 114,
+     "plantenbak_hout_normaal.jpg": 254,
+     "plantenbak_hout_ruwheid.jpg": 154
+    },
+    "laag": {
+     "plantenbak_hout.gltf": 4,
+     "plantenbak_hout.bin": 80,
+     "plantenbak_hout_kleur.jpg": 33,
+     "plantenbak_hout_normaal.jpg": 84,
+     "plantenbak_hout_ruwheid.jpg": 50
+    }
+   },
+   "kb": {
+    "hoog": 671,
+    "laag": 250
+   },
+   "verts": {
+    "hoog": 6313,
+    "laag": 3571
+   },
+   "tris": {
+    "hoog": 8094,
+    "laag": 4046
+   },
+   "bbox": {
+    "hoog": [
+     0.913,
+     0.425,
+     0.414
+    ],
+    "laag": [
+     0.913,
+     0.425,
+     0.414
+    ]
+   },
+   "bboxEenheid": "meter (breedte x hoogte x diepte)",
+   "oorsprong": {
+    "voetOpY0": true,
+    "minY": 0,
+    "bboxMiddenXZ": [
+     0,
+     0
+    ],
+    "omschrijving": "voet op y=0; bbox-midden op x/z=0"
+   },
+   "schaal": 1,
+   "schaalBereik": [
+    1,
+    1.3
+   ],
+   "extensionsRequired": {
+    "hoog": [
+     "KHR_mesh_quantization"
+    ],
+    "laag": [
+     "KHR_mesh_quantization"
+    ]
+   },
+   "materialen": [
+    "planter_box_01:OPAQUE:2z"
+   ],
+   "bron": "https://polyhaven.com/a/planter_box_01",
+   "auteur": "Poly Haven",
+   "licentie": "CC0 1.0 Universal (Poly Haven)",
+   "geschiktVoor": "houten plantenbak (leeg, folie binnenin); struik_laag of struik_klein erin zetten"
+  }
+ }
+}
