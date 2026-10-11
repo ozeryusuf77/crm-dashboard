@@ -1,0 +1,13 @@
+Bron: Poly Haven "Wood Floor Deck" (wood_floor_deck), auteur Dimitrios Savva - https://polyhaven.com/a/wood_floor_deck
+Licentie: CC0 1.0 (public domain) - https://polyhaven.com/license ; naamsvermelding niet verplicht.
+Echte maat van 1 herhaling: 1,8 m x 1,8 m (Poly Haven dimensions); ca. 12 vlonderplanken van ~15 cm met open voegen, planken lopen langs U.
+Origineel: 2k JPG's (diff, nor_gl, rough, ao). SHA-256 gelijk aan de Poly Haven-downloads volgens twee onafhankelijke manifests
+  (Seckcey/kannon-fps art/source/town-v2/cc0-manifest.json en GreyVersusBlue/castle-conundrum tools/castle3d/sources.json):
+  diff 1b55c67104cf6398ab976ee7fe4f0d0831c8c9808c13ab286dfc1cf0e4fcf2d0, nor_gl 6d452c7511ca6797e9bb6809a1ae054d7448725b966d7d2f85ff139648ddd7ec,
+  rough c82ee0705926f7d0a235bb5d6a5879a666040a4d1438980f4ed5387935cba786, ao cedf58bdeabcf080974185b0a345fbe92a75933626b6d6461b6ee710cc01dc96.
+Opgehaald via raw.githubusercontent.com/LDHZenkai/water_sim/main/game/assets/polyhaven/textures/wood_floor_deck/.
+Bewerking: alleen opnieuw als JPG opgeslagen (kleur q85 4:2:0, normal q88 4:4:4 OpenGL/+Y, ruwheid/ao grijs q85). 2048 x 2048.
+Let op: dit is geverniste/gebeitste grenen (roodbruin, met noesten), geen teak. Bedoeld als vlonder-alternatief.
+
+Bewerking voor de configurator (W1-terras): kleur in Lab lichter en minder rood gemaakt (blanke vlonder,
+L naar gem. 70 met contrast x1,15, a x0,42, b x0,78); kleur_1k/normal_1k = LANCZOS 1024 px; arm.jpg (1K): R = ao, G = ruwheid, B = 0.
