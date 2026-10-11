@@ -44,9 +44,9 @@ const SALON = [1.0, 0.05, 0.6]
 const SALON_POOT = 0.04, SALON_H = 0.34
 const KLEED_D = 2.0, KLEED_DIKTE = 0.012
 
-// Hangstoel: eivormige rotan kuip (bol r 0,5, verticaal 1,15× gerekt) aan een ketting
+// Hangstoel: eivormige rotan kuip (bol r 0,5, verticaal 1,15× gerekt) aan een ketting van de
+// ligger tot de bovenring van de kuip (op ca. 1,50 m)
 const KUIP_R = 0.5, KUIP_REK = 1.15, KUIP_Y = 0.95
-const KETTING_ONDER = 1.50          // ketting loopt van de ligger tot hier (bovenring van de kuip)
 const SCHAKEL_R = 0.011, SCHAKEL_D = 0.0025, SCHAKEL_STAP = 0.016
 const BOVENRING_R = 0.10, BOVENRING_D = 0.012
 const HANG_WANDVRIJ = 0.6           // minimale afstand ligger → zijwand

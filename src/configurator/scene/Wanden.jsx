@@ -52,13 +52,16 @@ function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
     refs.current.forEach((g, i) => { if (g) g.position.x = dicht(i) + (geopend(i) - dicht(i)) * t })
   })
 
-  // Komgreep: rvs-schaal 1,5 mm op het glas met een donkere kom erin; één geometrie
-  // voor alle panelen van deze wand.
-  const greepGeom = useMemo(() => ({
-    schaal: new THREE.CylinderGeometry(0.025, 0.025, 0.003, 24),
-    kom: new THREE.CylinderGeometry(0.018, 0.018, 0.004, 24),
-  }), [])
-  useEffect(() => () => { greepGeom.schaal.dispose(); greepGeom.kom.dispose() }, [greepGeom])
+  // Komgreep: metalen ring Ø 50 mm (3 mm op het glas) met daarin een 1 mm verzonken
+  // donkere kom Ø 36 mm; één geometrie voor alle panelen van deze wand.
+  const greepGeom = useMemo(() => {
+    const vorm = new THREE.Shape().absarc(0, 0, 0.025, 0, Math.PI * 2, false)
+    vorm.holes.push(new THREE.Path().absarc(0, 0, 0.018, 0, Math.PI * 2, true))
+    const ring = new THREE.ExtrudeGeometry(vorm, { depth: 0.003, bevelEnabled: false, curveSegments: 24 })
+    ring.translate(0, 0, -0.0015)
+    return { ring, kom: new THREE.CylinderGeometry(0.018, 0.018, 0.004, 24) }
+  }, [])
+  useEffect(() => () => { greepGeom.ring.dispose(); greepGeom.kom.dispose() }, [greepGeom])
 
   // Afstandsschakeling van de grepen: alle greep-groups van deze wand tegelijk.
   const wortel = useRef()
@@ -91,12 +94,13 @@ function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
             <Box args={[pw, 0.03, 0.02]} position={[0, onderH + 0.005, 0]} mat={mat.frame} />
             {/* Afdichtstrip (tochtstrip) van zwart kunststof over de volle glashoogte */}
             <Box args={[0.008, gh, 0.014]} position={[stripX, onderH + 0.02 + gh / 2, 0]} mat={mat.rubber} schaduw={false} />
-            {/* Komgreep aan beide kanten van het glas, alleen dichtbij zichtbaar */}
+            {/* Komgreep aan beide kanten van het glas, alleen dichtbij zichtbaar: ring op
+                z = ±0,0065 (1,5 mm buiten het glasvlak), kom 1 mm teruggezet in de ring */}
             <group ref={el => { grepen.current[i] = el; if (el) el.visible = grepenZichtbaar.current }} position={[greepX, 1.0, 0]}>
               {[-1, 1].map(s => (
-                <group key={s} position={[0, 0, s * 0.0065]} rotation={[Math.PI / 2, 0, 0]}>
-                  <mesh geometry={greepGeom.schaal} material={mat.greep} />
-                  <mesh geometry={greepGeom.kom} material={mat.rubber} />
+                <group key={s}>
+                  <mesh geometry={greepGeom.ring} material={mat.greep} position={[0, 0, s * 0.0065]} />
+                  <mesh geometry={greepGeom.kom} material={mat.rubber} position={[0, 0, s * 0.005]} rotation={[Math.PI / 2, 0, 0]} />
                 </group>
               ))}
             </group>

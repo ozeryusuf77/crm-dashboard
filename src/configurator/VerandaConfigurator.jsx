@@ -1,17 +1,22 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Scene from './scene/Scene.jsx'
 import { Foutgrens } from './scene/Foutgrens.jsx'
-import Zijdekiezer, { WAND_KLEUR } from './Zijdekiezer.jsx'
+import Zijdekiezer, { WAND_KLEUR, AfvoerDruppel } from './Zijdekiezer.jsx'
 import {
   STAPPEN, MODELLEN, BEVESTIGINGEN, MAAT_LABELS, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN,
   OPEN_RICHTINGEN, SPIE_TYPES, DOEK_KLEUREN, ZONWERING, SPOTS_OPTIES, ZIJDES,
+  AFVOER, AFVOER_UITLOPEN, VLOEREN, EXTRA_PRIJZEN,
   STANDAARD_CONFIG, TOON_PRIJZEN, vind, maatGrenzen, begrensMaten,
 } from './options.js'
-import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels } from './layout.js'
+import {
+  maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels,
+  afvoerMinimum, afvoerAdvies, afvoerOpties, begrensAfvoer, AFVOER_KANT_TEKST,
+} from './layout.js'
 import { berekenOfferte, euro, koppelTekst } from './pricing.js'
 import './configurator.css'
 
 const BEDIENING_START = { open: {}, screens: {}, onderdak: 0, bovendak: 0, heater: 0 }
+const AFVOER_KANTEN = ['links', 'rechts']
 
 // ─── Configuratie in de URL (deelbare link) ──────────────────────────────────
 function leesUrlConfig() {
@@ -28,7 +33,7 @@ function leesUrlConfig() {
     if (!BEVESTIGINGEN.some(b => b.id === json.bevestiging)) delete json.bevestiging
     delete json.goot
     const getal = (k, std) => (Number.isFinite(Number(json[k])) ? Number(json[k]) : std)
-    return begrensMaten({
+    const basis = begrensMaten({
       ...STANDAARD_CONFIG, ...json,
       breedte: getal('breedte', STANDAARD_CONFIG.breedte),
       diepte: getal('diepte', STANDAARD_CONFIG.diepte),
@@ -37,7 +42,11 @@ function leesUrlConfig() {
       spie: { ...STANDAARD_CONFIG.spie, ...json.spie },
       zonwering: { ...STANDAARD_CONFIG.zonwering, ...json.zonwering, screens: { ...STANDAARD_CONFIG.zonwering.screens, ...json.zonwering?.screens } },
       extra: { ...STANDAARD_CONFIG.extra, ...json.extra },
+      // Oude links zonder afvoer-/vloerveld krijgen de standaard; onbekende waarden worden hieronder begrensd.
+      afvoer: { ...STANDAARD_CONFIG.afvoer, ...(json.afvoer && typeof json.afvoer === 'object' ? json.afvoer : {}) },
+      vloer: VLOEREN.some(v => v.id === json.vloer) ? json.vloer : STANDAARD_CONFIG.vloer,
     })
+    return begrensAfvoer(basis).cfg
   } catch {
     return null
   }
@@ -46,9 +55,9 @@ const naarUrl = cfg => btoa(unescape(encodeURIComponent(JSON.stringify(cfg))))
 const deelLink = cfg => `${window.location.origin}${window.location.pathname}?c=${naarUrl(cfg)}`
 
 // ─── Kleine UI-bouwstenen ─────────────────────────────────────────────────────
-function Kaart({ actief, onClick, titel, sub, extra, kleur }) {
+function Kaart({ actief, onClick, titel, sub, extra, kleur, title, vast }) {
   return (
-    <button type="button" className={`vc-kaart${actief ? ' actief' : ''}`} onClick={onClick}>
+    <button type="button" className={`vc-kaart${actief ? ' actief' : ''}${vast ? ' vast' : ''}`} onClick={onClick} title={title} aria-pressed={actief}>
       {kleur && <span className="vc-kaart-kleur" style={{ background: kleur }} />}
       <span className="vc-kaart-tekst">
         <span className="vc-kaart-titel">{titel}</span>
@@ -59,11 +68,14 @@ function Kaart({ actief, onClick, titel, sub, extra, kleur }) {
   )
 }
 
+// Optie-velden: `disabled` + `reden` (niet-mogelijke keuze, reden als title), `sub` (title bij een mogelijke keuze).
 function Chips({ opties, waarde, onChange }) {
   return (
     <div className="vc-chips">
       {opties.map(o => (
-        <button key={o.id} type="button" className={`vc-chip${waarde === o.id ? ' actief' : ''}`} onClick={() => onChange(o.id)}>
+        <button key={o.id} type="button" className={`vc-chip${waarde === o.id ? ' actief' : ''}`}
+          disabled={!!o.disabled} title={o.disabled ? o.reden || undefined : o.sub || undefined}
+          onClick={() => onChange(o.id)}>
           {o.label}
         </button>
       ))}
@@ -134,7 +146,7 @@ const ICONEN = {
   binnen: <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M12 9a3 3 0 100 6 3 3 0 000-6z" />,
 }
 const STANDPUNTEN = [
-  { id: 'buiten', label: 'Buiten' },
+  { id: 'buiten', label: 'Foto' },
   { id: 'voor', label: 'Voorkant' },
   { id: 'links', label: 'Links' },
   { id: 'rechts', label: 'Rechts' },
@@ -213,6 +225,13 @@ function KoppelSchema({ L }) {
         </g>
       ))}
       {L.xStaanders.map((p, i) => <rect key={`s${i}`} x={x(p) - 3.5} y="30" width="7" height="7" fill="#333a40" />)}
+      {/* Hemelwaterafvoer in de hoekstaander(s): druppel onder de staander. */}
+      {L.afvoeren.map(a => (
+        <g key={`afvoer-${a.kant}`}>
+          <title>{`Hemelwaterafvoer in de ${AFVOER_KANT_TEKST[a.kant]} hoekstaander`}</title>
+          <AfvoerDruppel x={x(a.x)} y={45} r={5} fill="#2f7fd8" titel="Hemelwaterafvoer" />
+        </g>
+      ))}
     </svg>
   )
 }
@@ -237,11 +256,18 @@ export default function VerandaConfigurator() {
   const [view, setView] = useState({ naam: 'buiten', direct: true })
   const [bediening, setBediening] = useState(BEDIENING_START)
   const [nacht, setNacht] = useState(false)
-  const [toonMaten, setToonMaten] = useState(true)
+  const [toonMaten, setToonMaten] = useState(false)
   const [meubels, setMeubels] = useState(true)
   const [zijde, setZijde] = useState('voor')
   const [vak, setVak] = useState('alle')
+  // Regenmodus: regen + waterloop (doorkijk in de afvoerstaander); afvoerFocus = de klant
+  // werkt in de afvoersectie, dus de doorkijk blijft ook zonder regen aan.
+  const [regen, setRegen] = useState(false)
+  const [toonWaterloop, setToonWaterloop] = useState(true)
+  const [afvoerFocus, setAfvoerFocus] = useState(false)
+  const [afvoerHint, setAfvoerHint] = useState(null)
 
+  // De vloerkeuze zit in cfg.vloer (deellink); maakLayout leest hem zelf.
   const L = useMemo(() => maakLayout(cfg), [cfg])
   const offerte = useMemo(() => berekenOfferte(cfg), [cfg])
   const timers = useRef([])
@@ -269,29 +295,85 @@ export default function VerandaConfigurator() {
   const eersteMaat = useRef(true)
   useEffect(() => {
     if (eersteMaat.current) { eersteMaat.current = false; return }
-    const t = setTimeout(() => setView(v => ({ naam: v.naam })), 400)
+    const t = setTimeout(() => setView(v => ({ naam: v.naam, kant: v.kant })), 400)
     return () => clearTimeout(t)
   }, [cfg.breedte, cfg.diepte, cfg.hoogte, cfg.model, cfg.bevestiging])
 
-  // Elke wijziging blijft binnen de maatgrenzen van model + dak; bij aanpassing een melding.
+  // Maten alleen standaard aan in de matenstap; regen en afvoerfocus gaan uit bij het verlaten van 'Dak & afvoer'.
+  const vorigeStap = useRef(STAPPEN[stap].id)
+  useEffect(() => {
+    const id = STAPPEN[stap].id
+    setToonMaten(id === 'maten')
+    if (vorigeStap.current === 'dak' && id !== 'dak') { setRegen(false); setAfvoerFocus(false) }
+    vorigeStap.current = id
+  }, [stap])
+
+  // Elke wijziging blijft binnen de maatgrenzen van model + dak en houdt de afvoer geldig
+  // (minimum, onmogelijke uitlooprichting); bij een aanpassing een melding.
   const [melding, setMelding] = useState(null)
   const zet = useCallback(patch => setCfg(c => {
     const voorstel = { ...c, ...(typeof patch === 'function' ? patch(c) : patch) }
     const n = begrensMaten(voorstel)
     n.wanden = herverdeelVakWanden(c, n)
     const gewijzigd = ['breedte', 'diepte', 'hoogte'].filter(k => n[k] !== voorstel[k] && voorstel[k] === c[k])
+    const teksten = []
     if (gewijzigd.length) {
       const m = vind(MODELLEN, n.model), d = vind(DAKKEN, n.dak)
-      setMelding(gewijzigd.map(k => `${MAAT_LABELS[k]} aangepast naar ${n[k]} cm (grens voor ${m.label} met ${d.soort === 'glas' ? 'glazen' : 'polycarbonaat'} dak)`).join(' · '))
+      teksten.push(...gewijzigd.map(k => `${MAAT_LABELS[k]} aangepast naar ${n[k]} cm (grens voor ${m.label} met ${d.soort === 'glas' ? 'glazen' : 'polycarbonaat'} dak)`))
     }
-    return n
+    const { cfg: n2, meldingen } = begrensAfvoer(n)
+    teksten.push(...meldingen)
+    if (teksten.length) setMelding(teksten.join(' · '))
+    return n2
   }), [])
   useEffect(() => {
     if (!melding) return
     const t = setTimeout(() => setMelding(null), 6000)
     return () => clearTimeout(t)
   }, [melding])
-  const kijk = naam => setView({ naam })
+  useEffect(() => {
+    if (!afvoerHint) return
+    const t = setTimeout(() => setAfvoerHint(null), 4000)
+    return () => clearTimeout(t)
+  }, [afvoerHint])
+  const kijk = (naam, kant) => setView({ naam, kant })
+
+  // ── Hemelwaterafvoer ──────────────────────────────────────────────────────
+  const afvoerKanten = AFVOER_KANTEN.filter(k => cfg.afvoer[k])
+  const afvoerMin = afvoerMinimum(L)
+  const m2Tekst = L.oppervlak.toFixed(1).replace('.', ',')
+  // Elke afvoerwijziging: regen aan, doorkijk aan en de camera op de gewijzigde staander.
+  const zetAfvoer = (kant, patch) => {
+    zet(c => ({ afvoer: { ...c.afvoer, ...patch } }))
+    setRegen(true)
+    setAfvoerFocus(true)
+    kijk('afvoer', kant)
+  }
+  // Afvoer in een hoekstaander aan/uit (plattegrond, kaarten en klik op de staander in 3D).
+  const toggleAfvoerStaander = kant => {
+    const ander = kant === 'links' ? 'rechts' : 'links'
+    if (!cfg.afvoer[kant]) { zetAfvoer(kant, { [kant]: kant }); return }
+    if (afvoerMin === 2) {
+      setAfvoerHint(`Deze afvoer is verplicht: bij ${m2Tekst} m² dak zijn twee afvoeren nodig.`)
+    } else if (!cfg.afvoer[ander]) {
+      setAfvoerHint('Minimaal één afvoer: kies eerst de andere hoekstaander om deze uit te zetten.')
+    } else {
+      zetAfvoer(ander, { [kant]: null })
+      return
+    }
+    // Niet uitzetbaar: wel regen en de camera op deze staander, zodat de klik iets laat zien.
+    setRegen(true)
+    setAfvoerFocus(true)
+    kijk('afvoer', kant)
+  }
+  // Klik op een hoekstaander in 3D: in 'Dak & afvoer' de afvoerkeuze, anders de waterloop-doorkijk.
+  const huidige = STAPPEN[stap].id
+  const onKlikStaander = kant => {
+    if (huidige === 'dak' && AFVOER_KANTEN.includes(kant)) toggleAfvoerStaander(kant)
+    else setToonWaterloop(w => !w)
+  }
+  const volgWater = () => kijk('afvoer', afvoerKanten[0] || 'rechts')
+  const vloerVolgende = VLOEREN[(VLOEREN.findIndex(v => v.id === cfg.vloer) + 1) % VLOEREN.length] || VLOEREN[0]
 
   // Speel na een keuze kort de beweging af: eerst dicht/opgerold, daarna open/uitgerold.
   const demo = (pad, van, naar, vertraging = 650) => {
@@ -313,7 +395,8 @@ export default function VerandaConfigurator() {
 
   const zetWand = patch => {
     const nieuw = { ...actieveWand, ...patch }
-    setCfg(c => {
+    // Via zet(): een nieuwe zij- of voorwand kan een uitlooprichting van de afvoer onmogelijk maken.
+    zet(c => {
       const wanden = { ...c.wanden }
       if (zijdeHeeftVakken && vak !== 'alle') {
         wanden[`${zijde}#${vak}`] = nieuw
@@ -322,7 +405,7 @@ export default function VerandaConfigurator() {
         // "Alle vakken": per-vak afwijkingen voor deze zijde opheffen.
         Object.keys(wanden).forEach(k => { if (k.startsWith(`${zijde}#`)) delete wanden[k] })
       }
-      return { ...c, wanden }
+      return { wanden }
     })
     const type = vind(WAND_TYPES, nieuw.type)
     if (type.bedienbaar && (patch.type || patch.richting)) demo(wandPad(geselecteerdeSlots.map(s => s.key)), 0, 1, 900)
@@ -337,7 +420,12 @@ export default function VerandaConfigurator() {
   // Bedienbare onderdelen in de huidige configuratie.
   const bedienbareWanden = slots.filter(s => vind(WAND_TYPES, wandVoor(cfg, s.key)?.type).bedienbaar)
   const screenZijdes = Object.entries(cfg.zonwering.screens).filter(([z, aan]) => aan && (z !== 'achter' || L.vrijstaand)).map(([z]) => z)
-  const huidige = STAPPEN[stap].id
+  const bedieningAanwezig = bedienbareWanden.length > 0 || screenZijdes.length > 0 || cfg.zonwering.onderdak || cfg.zonwering.bovendak || cfg.extra.heater > 0
+  const dockHint = huidige === 'dak'
+    ? 'Klik op een hoekstaander om de afvoer te kiezen.'
+    : regen
+      ? 'Klik op de staander om in de afvoer te kijken.'
+      : 'Tip: klik in het 3D-model op een schuifwand, pui of screen om hem te bedienen.'
 
   return (
     <div className="vc">
@@ -368,7 +456,8 @@ export default function VerandaConfigurator() {
           )}>
             <Suspense fallback={<div className="vc-laden">3D-model laden…</div>}>
               <Scene cfg={cfg} L={L} view={view} bediening={bediening} zetBediening={setBediening}
-                nacht={nacht} toonMaten={toonMaten} meubels={meubels} />
+                nacht={nacht} toonMaten={toonMaten} meubels={meubels}
+                regen={regen} toonWaterloop={toonWaterloop} afvoerFocus={afvoerFocus} onKlikStaander={onKlikStaander} />
             </Suspense>
           </Foutgrens>
 
@@ -381,15 +470,25 @@ export default function VerandaConfigurator() {
             ))}
           </div>
 
-          <div className="vc-weergave">
+          <div className="vc-weergave" role="toolbar" aria-label="Weergave">
             <button type="button" className={`vc-pil${nacht ? ' actief' : ''}`} onClick={() => setNacht(n => !n)}>{nacht ? '☾ Avond' : '☀ Dag'}</button>
-            <button type="button" className={`vc-pil${toonMaten ? ' actief' : ''}`} onClick={() => setToonMaten(m => !m)}>Maten</button>
-            <button type="button" className={`vc-pil${meubels ? ' actief' : ''}`} onClick={() => setMeubels(m => !m)}>Meubels</button>
+            <button type="button" className={`vc-pil${toonMaten ? ' actief' : ''}`} aria-pressed={toonMaten} onClick={() => setToonMaten(m => !m)}>Maten</button>
+            <button type="button" className={`vc-pil${meubels ? ' actief' : ''}`} aria-pressed={meubels} onClick={() => setMeubels(m => !m)}>Meubels</button>
+            <button type="button" className="vc-pil" title={`Wissel naar ${vloerVolgende.label.toLowerCase()}`}
+              onClick={() => zet({ vloer: vloerVolgende.id })}>Vloer: {vind(VLOEREN, cfg.vloer).label.toLowerCase()}</button>
+            <button type="button" className={`vc-pil regen${regen ? ' actief' : ''}`} aria-pressed={regen} onClick={() => setRegen(r => !r)}>Regen</button>
+            {regen && (
+              <>
+                <button type="button" className={`vc-pil regen${toonWaterloop ? ' actief' : ''}`} aria-pressed={toonWaterloop}
+                  title="Kijk door de hoekstaander om het water te volgen" onClick={() => setToonWaterloop(w => !w)}>Waterloop</button>
+                <button type="button" className={`vc-pil${view.naam === 'afvoer' ? ' actief' : ''}`} title="Camera op de afvoer" onClick={volgWater}>Volg het water</button>
+              </>
+            )}
           </div>
 
-          {(bedienbareWanden.length > 0 || screenZijdes.length > 0 || cfg.zonwering.onderdak || cfg.zonwering.bovendak || cfg.extra.heater > 0) && (
+          {(bedieningAanwezig || regen || huidige === 'dak') && (
             <div className="vc-dock">
-              <div className="vc-dock-titel">Bediening</div>
+              {bedieningAanwezig && <div className="vc-dock-titel">Bediening</div>}
               <div className="vc-dock-knoppen">
                 {bedienbareWanden.length > 0 && (() => {
                   const open = bedienbareWanden.some(s => (bediening.open[s.key] ?? 0) > 0.5)
@@ -407,7 +506,7 @@ export default function VerandaConfigurator() {
                   <button type="button" className={`vc-pil${bediening.heater ? ' actief' : ''}`} onClick={() => setBediening(b => ({ ...b, heater: b.heater ? 0 : 1 }))}>Heater {bediening.heater ? 'uit' : 'aan'}</button>
                 )}
               </div>
-              <div className="vc-dock-hint">Tip: klik in het 3D-model op een schuifwand, pui of screen om hem te bedienen.</div>
+              <div className="vc-dock-hint">{dockHint}</div>
             </div>
           )}
           {view.naam === 'binnen' && <div className="vc-binnen-hint">Sleep om rond te kijken · klik op glas om te openen</div>}
@@ -437,7 +536,8 @@ export default function VerandaConfigurator() {
                   <ul className="vc-spec">
                     <li>Uit één stuk tot {vind(MODELLEN, cfg.model).maxDeel} cm breed, daarboven in delen gekoppeld</li>
                     <li>Diepte tot {vind(MODELLEN, cfg.model).diepte.poly[1]} cm (polycarbonaat) / {vind(MODELLEN, cfg.model).diepte.glas[1]} cm (glas)</li>
-                    <li>Staanders {Math.round(vind(MODELLEN, cfg.model).staander[0] * 1000)} × {Math.round(vind(MODELLEN, cfg.model).staander[1] * 1000)} mm{vind(MODELLEN, cfg.model).afvoer === 'staander' ? ', afvoer verborgen in de staander' : ''}</li>
+                    <li>Staanders {Math.round(vind(MODELLEN, cfg.model).staander[0] * 1000)} × {Math.round(vind(MODELLEN, cfg.model).staander[1] * 1000)} mm</li>
+                    <li>Afvoer verborgen in de hoekstaander, uitloop naar keuze</li>
                   </ul>
                 </div>
                 <div className="vc-groep-titel">Plaatsing</div>
@@ -470,7 +570,7 @@ export default function VerandaConfigurator() {
                     <div className="vc-info">Uit één stuk tot {m.maxDeel} cm. Breder wordt de veranda automatisch in 2 delen gekoppeld.</div>
                   )}
                   <div className="vc-info">
-                    {L.xStaanders.length * (L.vrijstaand ? 2 : 1)} staanders · {L.vakken.length} {L.vakken.length === 1 ? 'vak' : 'vakken'} ({L.vakken.map(v => Math.round(v.breedte * 100)).join(' / ')} cm) · {L.liggers.length} liggers · {L.oppervlak.toFixed(1).replace('.', ',')} m²
+                    {L.xStaanders.length * (L.vrijstaand ? 2 : 1)} staanders · {L.vakken.length} {L.vakken.length === 1 ? 'vak' : 'vakken'} ({L.vakken.map(v => Math.round(v.breedte * 100)).join(' / ')} cm) · {L.liggers.length} liggers · {m2Tekst} m² · {L.afvoeren.length} {L.afvoeren.length === 1 ? 'afvoer in de hoekstaander' : 'afvoeren in de hoekstaanders'}
                     <br />Max {Math.round(L.overspanning * 100)} cm tussen staanders bij {L.soort === 'glas' ? 'een glazen' : 'een polycarbonaat'} dak van {cfg.diepte} cm diep.
                   </div>
                 </>
@@ -508,6 +608,75 @@ export default function VerandaConfigurator() {
                   </div>
                 ))}
                 <button type="button" className="vc-link" onClick={() => kijk('binnen')}>Bekijk het dak van binnenuit →</button>
+
+                <div className="vc-groep-titel">Hemelwaterafvoer</div>
+                <p className="vc-uitleg">Het regenwater loopt van het dak in de goot en via een verborgen buis door een voorste hoekstaander naar beneden. Kies in welke staander(s) de afvoer komt en aan welke kant de uitloop onderaan zit (gezien vanuit de tuin).</p>
+                <Zijdekiezer cfg={cfg} L={L} modus="afvoer" onKiesAfvoer={toggleAfvoerStaander} />
+                <div className="vc-kaarten vc-afvoer-staanders">
+                  {AFVOER_KANTEN.map(kant => {
+                    const actief = !!cfg.afvoer[kant]
+                    // De rechter staander (standaard) is inbegrepen; een tweede afvoer kost extra.
+                    const inbegrepen = actief && (kant === 'rechts' || !cfg.afvoer.rechts)
+                    const vast = actief && (afvoerMin === 2 || afvoerKanten.length === 1)
+                    return (
+                      <Kaart key={kant} actief={actief} vast={vast} titel={`${kant === 'links' ? 'Linker' : 'Rechter'} hoekstaander`}
+                        sub={actief ? `Gezien vanuit de tuin · uitloop ${vind(afvoerOpties(cfg, L, kant), cfg.afvoer[kant]).label.toLowerCase()}` : 'Gezien vanuit de tuin'}
+                        extra={TOON_PRIJZEN ? (inbegrepen ? 'incl.' : `+ ${euro(EXTRA_PRIJZEN.afvoerExtra)}`) : null}
+                        title={vast ? (afvoerMin === 2 ? 'Verplicht bij dit dakoppervlak' : 'Minimaal één afvoer') : (actief ? 'Klik om de afvoer uit deze staander te halen' : 'Klik om hier een afvoer toe te voegen')}
+                        onClick={() => toggleAfvoerStaander(kant)} />
+                    )
+                  })}
+                </div>
+                {afvoerHint && <div className="vc-melding vc-hint" role="status">{afvoerHint}</div>}
+                {afvoerMin === 2 ? (
+                  <div className="vc-info">Bij {m2Tekst} m² dak zijn twee afvoeren nodig (max. {L.M.afvoer.m2} m² per afvoer): beide hoekstaanders voeren af.</div>
+                ) : afvoerAdvies(L) === 2 ? (
+                  <div className="vc-info">Bij een veranda in {L.delen.length} delen adviseren wij een afvoer in beide hoekstaanders.</div>
+                ) : null}
+
+                {afvoerKanten.map(kant => {
+                  const opties = afvoerOpties(cfg, L, kant).map(o => ({
+                    ...o,
+                    label: o.id === 'achter' ? `${o.label} (${o.sub.toLowerCase()})` : o.label,
+                  }))
+                  const onmogelijk = opties.filter(o => !o.mogelijk)
+                  const gekozen = opties.find(o => o.id === cfg.afvoer[kant])
+                  return (
+                    <div key={kant}>
+                      <div className="vc-groep-titel">Uitloop onderaan — {AFVOER_KANT_TEKST[kant]} staander</div>
+                      <Chips opties={opties} waarde={cfg.afvoer[kant]} onChange={richting => zetAfvoer(kant, { [kant]: richting })} />
+                      {(onmogelijk.length > 0 || gekozen?.hint) && (
+                        <div className="vc-info">
+                          {onmogelijk.map(o => `${o.label.split(' (')[0]} niet mogelijk: ${o.reden}.`).join(' ')}
+                          {onmogelijk.length > 0 && gekozen?.hint ? ' ' : ''}
+                          {gekozen?.hint || ''}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {afvoerKanten.some(k => cfg.afvoer[k] !== 'onder') && (
+                  <>
+                    <div className="vc-groep-titel">Uitloop</div>
+                    <Chips waarde={cfg.afvoer.uitloop}
+                      opties={AFVOER_UITLOPEN.map(u => ({
+                        ...u,
+                        label: u.id === 'kapje' && TOON_PRIJZEN ? `${u.label} + ${euro(EXTRA_PRIJZEN.uitloopKapje)} per staander` : u.label,
+                      }))}
+                      onChange={uitloop => zetAfvoer(afvoerKanten.find(k => cfg.afvoer[k] !== 'onder') || afvoerKanten[0], { uitloop })} />
+                  </>
+                )}
+                <Schakelaar label="Bladvanger in de gootuitloop" aan={!!cfg.afvoer.bladvanger}
+                  sub={`Voorkomt verstopping door blad${TOON_PRIJZEN ? ` · ${euro(EXTRA_PRIJZEN.bladvanger)} per afvoer` : ''}`}
+                  onChange={v => zetAfvoer(afvoerKanten[0] || 'rechts', { bladvanger: v })} />
+                <div className="vc-info">
+                  Uitloop Ø {Math.round(L.M.afvoer.buis * 1000)} mm op {Math.round(AFVOER.uitloopH * 100)} cm boven de vloer. Het water komt vrij op het terras: leg er een putje of grindstrook onder, of kies 'Ondergronds' voor aansluiting op de regenpijp of het riool{TOON_PRIJZEN ? ` (+ ${euro(EXTRA_PRIJZEN.afvoerOndergronds)} per staander, incl. graafwerk bij montage)` : ''}.
+                </div>
+                <button type="button" className="vc-link"
+                  onClick={() => { if (regen) { setRegen(false); setAfvoerFocus(false) } else { setRegen(true); setAfvoerFocus(true); volgWater() } }}>
+                  {regen ? 'Stop de regen' : 'Laat het regenen en bekijk de afvoer →'}
+                </button>
               </>
             )}
 
