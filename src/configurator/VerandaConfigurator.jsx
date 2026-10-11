@@ -49,6 +49,13 @@ function leesUrlConfig() {
       afvoer: { ...STANDAARD_CONFIG.afvoer, ...(json.afvoer && typeof json.afvoer === 'object' ? json.afvoer : {}) },
       vloer: VLOEREN.some(v => v.id === json.vloer) ? json.vloer : STANDAARD_CONFIG.vloer,
     })
+    // Aantal puidelen: alleen 2, 3 of 4 (als getal); anders automatisch.
+    for (const w of Object.values(basis.wanden)) {
+      if (!w || typeof w !== 'object') continue
+      const d = Number(w.delen)
+      if ([2, 3, 4].includes(d)) w.delen = d
+      else delete w.delen
+    }
     return begrensAfvoer(basis).cfg
   } catch {
     return null
@@ -779,10 +786,22 @@ export default function VerandaConfigurator() {
                   </>
                 )}
                 {actieveWand?.type === 'schuifpui' && (() => {
-                  const keuze = actieveWand.delen ?? 'auto'
                   const uniek = lijst => lijst.filter((v, i, a) => a.indexOf(v) === i)
-                  const aantallen = uniek(geselecteerdeSlots.map(s => aantalPuiVleugels(s.lengte, keuze)))
-                  const vleugels = uniek(geselecteerdeSlots.map(s => Math.round(puiVleugelBreedte(s.lengte, aantalPuiVleugels(s.lengte, keuze)) * 100)))
+                  // Per slot de eigen instelling (bij 'Alle vakken' kan die per vak verschillen).
+                  const perSlot = geselecteerdeSlots.map(s => {
+                    const d = wandVoor(cfg, s.key)?.delen ?? 'auto'
+                    const n = aantalPuiVleugels(s.lengte, d)
+                    return { d, n, kan: d === 'auto' || puiDelenOptie(s.lengte, d).mogelijk, vleugel: Math.round(puiVleugelBreedte(s.lengte, n) * 100) }
+                  })
+                  const keuzes = uniek(perSlot.map(x => x.d))
+                  const gekozen = keuzes.length === 1 ? keuzes[0] : null
+                  // Actieve chip: alleen als alle slots dezelfde, toepasbare keuze hebben; anders 'Automatisch'
+                  // (bij een niet meer passende keuze) of geen chip (per vak verschillend).
+                  const keuze = gekozen == null ? null : (perSlot.every(x => x.kan) ? gekozen : 'auto')
+                  const aantallen = uniek(perSlot.map(x => x.n))
+                  const vleugels = uniek(perSlot.map(x => x.vleugel))
+                  const nietPassend = gekozen != null && gekozen !== 'auto' && !perSlot.every(x => x.kan)
+                    ? geselecteerdeSlots.map(s => puiDelenOptie(s.lengte, gekozen)).find(c => !c.mogelijk) : null
                   const opties = PUI_DELEN.map(o => {
                     if (o.id === 'auto') return { ...o, label: `Automatisch (${uniek(geselecteerdeSlots.map(s => autoPuiDelen(s.lengte))).join('/')}-delig)` }
                     const fout = geselecteerdeSlots.map(s => puiDelenOptie(s.lengte, o.id)).find(c => !c.mogelijk)
@@ -797,6 +816,8 @@ export default function VerandaConfigurator() {
                     <>
                       <div className="vc-groep-titel">Aantal delen</div>
                       <Chips opties={opties} waarde={keuze} onChange={delen => zetWand({ delen })} />
+                      {gekozen == null && <div className="vc-info">Per vak verschillend ingesteld; kies hier een aantal voor alle vakken of stel het per vak in.</div>}
+                      {nietPassend && <div className="vc-info">Uw keuze {gekozen}-delig kan bij deze breedte niet ({nietPassend.reden}); er wordt automatisch {aantallen.join('/')}-delig toegepast.</div>}
                       {aantallen.some(n => n !== 4) && (
                         <>
                           <div className="vc-groep-titel">Schuifrichting</div>
@@ -818,6 +839,11 @@ export default function VerandaConfigurator() {
                   <>
                     <div className="vc-groep-titel">Spie (driehoek boven de zijwand)</div>
                     <Chips opties={SPIE_TYPES} waarde={cfg.spie[zijde]} onChange={v => zet(c => ({ spie: { ...c.spie, [zijde]: v } }))} />
+                    {cfg.spie[zijde] !== 'geen' && (
+                      <div className="vc-info">{L.spie.delen > 1
+                        ? `Bij ${cfg.diepte} cm diep wordt de spie in ${L.spie.delen} gelijke delen geleverd, met een tussenstijl op elke deling.`
+                        : 'Uit één stuk, in een profiel tegen de gevel en op de zijbalk; geen tussenstijl.'}</div>
+                    )}
                   </>
                 ) : (
                   <div className="vc-info">Bij de {vind(MODELLEN, cfg.model).label} is geen spie nodig: het dak ligt vlak achter de omkasting, dus de zijwand sluit direct aan.</div>

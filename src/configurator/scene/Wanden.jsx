@@ -112,8 +112,11 @@ function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
 }
 
 // ─── Aluminium schuifpui ──────────────────────────────────────────────────────
-function Vleugel({ b, h, mat, greep }) {
-  const s = 0.085
+// `greep`: +1/-1 = sluitstijl met greep (rechts/links), undefined = vaste vleugel zonder greep.
+// `greepZijden`: aan welke kant(en) van het glas de greep zit (+1 buiten, -1 binnen).
+const STIJL = 0.085
+function Vleugel({ b, h, mat, greep, greepZijden = [-1, 1] }) {
+  const s = STIJL
   return (
     <group>
       <Box args={[s, h, 0.055]} position={[-b / 2 + s / 2, h / 2, 0]} mat={mat.frame} />
@@ -123,7 +126,7 @@ function Vleugel({ b, h, mat, greep }) {
       <mesh material={mat.dubbelGlas} position={[0, h / 2, 0]} renderOrder={3}>
         <boxGeometry args={[b - 2 * s + 0.01, h - 0.18, 0.024]} />
       </mesh>
-      {greep !== undefined && [-1, 1].map(z => (
+      {greep !== undefined && greepZijden.map(z => (
         <group key={z} position={[greep * (b / 2 - s / 2), 1.05, z * 0.045]}>
           <Box args={[0.025, 0.34, 0.025]} position={[0, 0, z * 0.012]} mat={mat.rvs} />
           <Box args={[0.02, 0.02, 0.03]} position={[0, 0.15, 0]} mat={mat.rvs} />
@@ -143,23 +146,28 @@ function Schuifpui({ lengte, hoogte, open, richting, delen }) {
   const fp = SCHUIFPUI.kozijn
   const n = aantalPuiVleugels(lengte, delen)
   const sporen = n === 3 ? 3 : 2
-  const diep = 0.07 + sporen * SPOOR          // kozijndiepte: 2 sporen 130 mm, 3 sporen 190 mm (nog net 2 vlakken)
+  const diep = 0.07 + (sporen - 1) * SPOOR    // kozijn = 70 mm + spoorafstanden: 2 sporen 130 mm, 3 sporen 190 mm
   const li = lengte - 2 * fp
   const sw = puiVleugelBreedte(lengte, n)
   const sh = hoogte - fp - 0.06
-  const dicht = i => -li / 2 + sw / 2 + i * (sw - SCHUIFPUI.overlap)
+  // Gesloten stand: buren overlappen 70 mm; bij 4-delig stuiten de middelste twee op elkaar.
+  const overlappenLinks = i => (n === 4 && i >= 2 ? i - 1 : i)
+  const dicht = i => -li / 2 + sw / 2 + i * sw - overlappenLinks(i) * SCHUIFPUI.overlap
   const naarRechts = richting === 'rechts'
 
-  // Welke vleugels schuiven, waarheen, en op welk spoor ze lopen.
+  // Welke vleugels schuiven, waarheen, en op welk spoor ze lopen. Gestapelde vleugels eindigen
+  // telkens één stijlbreedte verder dan de vleugel eronder, zodat de grepen vrij blijven.
   let bewegend, spoor
   if (n === 4) {
-    bewegend = { 1: dicht(0), 2: dicht(3) }                  // buitenste vast, middelste naar buiten
+    bewegend = { 1: dicht(0) + STIJL, 2: dicht(3) - STIJL }   // buitenste vast, middelste naar buiten
     spoor = [0, 1, 1, 0]
   } else if (n === 3) {
-    bewegend = naarRechts ? { 0: dicht(2), 1: dicht(2) } : { 1: dicht(0), 2: dicht(0) }
+    bewegend = naarRechts
+      ? { 0: dicht(2) - 2 * STIJL, 1: dicht(2) - STIJL }
+      : { 1: dicht(0) + STIJL, 2: dicht(0) + 2 * STIJL }
     spoor = naarRechts ? [2, 1, 0] : [0, 1, 2]              // de verste vleugel loopt op het binnenste spoor
   } else {
-    bewegend = naarRechts ? { 0: dicht(1) } : { 1: dicht(0) }
+    bewegend = naarRechts ? { 0: dicht(1) - STIJL } : { 1: dicht(0) + STIJL }
     spoor = naarRechts ? [1, 0] : [0, 1]
   }
   const spoorZ = i => ((sporen - 1) / 2 - spoor[i]) * SPOOR
@@ -183,7 +191,8 @@ function Schuifpui({ lengte, hoogte, open, richting, delen }) {
         const greep = beweegt ? (bewegend[i] < dicht(i) ? 1 : -1) : undefined
         return (
           <group key={`${n}-${i}`} ref={el => (refs.current[i] = el)} position={[dicht(i), 0.06, spoorZ(i)]}>
-            <Vleugel b={sw} h={sh} mat={mat} greep={greep} />
+            {/* 3-delig: de middelste vleugel overlapt aan de binnenkant de binnenste vleugel, daar een vlakke greep (niet getekend) */}
+            <Vleugel b={sw} h={sh} mat={mat} greep={greep} greepZijden={n === 3 && i === 1 ? [1] : [-1, 1]} />
           </group>
         )
       })}
@@ -196,20 +205,25 @@ function VastGlas({ lengte, hoogte, glas }) {
   const mat = useMat()
   const n = Math.max(1, Math.ceil(lengte / 1.0))
   const b = lengte / n
+  // Bovenregel 50 mm, onderregel 40 mm; stijlen en glas lopen 10 mm in beide regels door (onzichtbaar:
+  // de regels zijn dieper), zodat er nergens een naad of kier tussen regel en vulling zit.
+  const boven = 0.05, onder = 0.04
+  const vulH = hoogte - boven - onder
+  const yMid = onder + vulH / 2
   return (
     <group>
-      <Box args={[lengte, 0.05, 0.06]} position={[0, hoogte - 0.025, 0]} mat={mat.frame} />
-      <Box args={[lengte, 0.04, 0.06]} position={[0, 0.02, 0]} mat={mat.frame} />
+      <Box args={[lengte, boven, 0.06]} position={[0, hoogte - boven / 2, 0]} mat={mat.frame} />
+      <Box args={[lengte, onder, 0.06]} position={[0, onder / 2, 0]} mat={mat.frame} />
       {/* Eindstijlen (aansluitprofiel tegen staander of gevel) en tussenstijlen */}
       {[-1, 1].map(s => (
-        <Box key={`e${s}`} args={[0.035, hoogte - 0.09, 0.05]} position={[s * (lengte / 2 - 0.0175), hoogte / 2, 0]} mat={mat.frame} />
+        <Box key={`e${s}`} args={[0.035, vulH + 0.02, 0.05]} position={[s * (lengte / 2 - 0.0175), yMid, 0]} mat={mat.frame} />
       ))}
       {Array.from({ length: n - 1 }, (_, i) => (
-        <Box key={i} args={[0.035, hoogte - 0.09, 0.05]} position={[-lengte / 2 + b * (i + 1), hoogte / 2, 0]} mat={mat.frame} />
+        <Box key={i} args={[0.035, vulH + 0.02, 0.05]} position={[-lengte / 2 + b * (i + 1), yMid, 0]} mat={mat.frame} />
       ))}
       {Array.from({ length: n }, (_, i) => (
-        <mesh key={`g${i}`} material={paneelVoor(mat, glas)} position={[-lengte / 2 + b * (i + 0.5), hoogte / 2, 0]} renderOrder={3}>
-          <boxGeometry args={[b - 0.035, hoogte - 0.09, 0.01]} />
+        <mesh key={`g${i}`} material={paneelVoor(mat, glas)} position={[-lengte / 2 + b * (i + 0.5), yMid, 0]} renderOrder={3}>
+          <boxGeometry args={[b - 0.035, vulH + 0.02, 0.01]} />
         </mesh>
       ))}
     </group>

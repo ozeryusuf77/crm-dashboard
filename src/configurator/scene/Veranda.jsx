@@ -12,7 +12,7 @@ import { klikbaar } from './anim.js'
 import { natHook } from './regenNat.js'
 import { MOBIEL } from './kwaliteit.js'
 import { AfvoerInStaander } from './Afvoer.jsx'
-import { MUURPROFIEL_D } from '../layout.js'
+import { MUURPROFIEL_D, MUURAANSLUIT } from '../layout.js'
 
 function Box({ args, position, rotation, mat, schaduw = true }) {
   return (
@@ -220,36 +220,40 @@ function Muurprofiel({ L, yBoven, h }) {
 
 // ─── Spie ────────────────────────────────────────────────────────────────────
 // Driehoekige spie boven de zijwand, onder de schuine ligger (alleen hellend dak). Hij zit in een
-// omlijsting: onder de zijbalk, boven de ligger en tegen de gevel een verticaal aansluitprofiel
-// (vrijstaand sluit hij op de achterstaander aan). Tot SPIE_DEEL_MAX diep is het één vlak zonder
-// stijl; dieper wordt hij in gelijke delen gesplitst met een tussenstijl op elke deling.
-const SPIE_DEEL_MAX = 3.6
+// omlijsting: onder de zijbalk, boven de ligger, tegen de gevel het muuraansluitprofiel (zie
+// Veranda) en vrijstaand tegen de achterstaander, met de bovenrand onder de achtergoot door.
+// Tot SPIE_DEEL_MAX diep (layout.js) is het één vlak zonder stijl; dieper wordt hij in gelijke
+// delen gesplitst met een tussenstijl op elke deling (L.spie.delen).
 const SPIE_STIJL = 0.04   // stijlbreedte langs de diepte; in de breedte even diep als de zijbalk eronder (60 mm)
 function Spie({ L, kant, type }) {
   const mat = useMat()
-  // Niet in een open gootkanaal steken: 4 mm vóór de dakzijdige gootwand afkappen
-  // (voorgoot altijd, achtergoot bij vrijstaand).
-  const z0 = L.vrijstaand ? Math.max(L.zij.z0, L.gootB + 0.004) : L.zij.z0
-  const z1 = Math.min(L.zij.z1, L.D - L.gootB - 0.004)
+  const { z0, z1, zg, delen } = L.spie
   const geom = useMemo(() => {
     const onder = L.Hf + 0.005
+    const top = z => L.dakY(z) - L.lH - 0.005
     const s = new THREE.Shape()
     s.moveTo(z0, onder)
     s.lineTo(z1, onder)
-    s.lineTo(z1, L.dakY(z1) - L.lH - 0.005)
-    s.lineTo(z0, L.dakY(z0) - L.lH - 0.005)
+    s.lineTo(z1, top(z1))
+    if (zg != null) {
+      // Vrijstaand: onder de achtergoot blijft de spie 4 mm onder de achterbalk.
+      const onderGoot = Math.min(top(zg), L.achterBalkOnder - 0.004)
+      s.lineTo(zg, top(zg))
+      s.lineTo(zg, onderGoot)
+      s.lineTo(z0, onderGoot)
+    } else {
+      s.lineTo(z0, top(z0))
+    }
     s.lineTo(z0, onder)
     // 8 mm dik, zodat de spie van binnen én buiten zichtbaar is (ook met FrontSide-materialen).
     return new THREE.ExtrudeGeometry(s, { depth: 0.008, bevelEnabled: false }).translate(0, 0, -0.004)
-  }, [L, z0, z1])
+  }, [L, z0, z1, zg])
   useEffect(() => () => geom.dispose(), [geom])
   const m = type === 'glas' ? mat.glasHelder : type === 'poly' ? mat.polySpie : mat.frame
   const x = kant * L.zij.x
-  // Stijlen: tegen de gevel (hart 20 mm vanaf de glasrand) en op elke deling; van de zijbalk tot
-  // net onder de ligger, gemeten aan de lage (voorste) kant van de stijl.
-  const nDelen = Math.max(1, Math.ceil((z1 - z0) / SPIE_DEEL_MAX - 1e-9))
-  const stijlen = L.vrijstaand ? [] : [z0 + SPIE_STIJL / 2]
-  for (let k = 1; k < nDelen; k++) stijlen.push(z0 + (k * (z1 - z0)) / nDelen)
+  // Tussenstijlen op de delingen, van de zijbalk tot net onder de ligger (gemeten aan de lage kant).
+  const stijlen = []
+  for (let k = 1; k < delen; k++) stijlen.push(z0 + (k * (z1 - z0)) / delen)
   return (
     <group>
       <mesh geometry={geom} material={m} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow={type === 'alu'} renderOrder={3} />
@@ -475,8 +479,8 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
             : <Goot L={L} y={hAchter} achter />}
         </>
       ) : L.kubus
-        ? <Muurprofiel L={L} yBoven={L.yRand} h={0.22} />
-        : <Muurprofiel L={L} yBoven={L.yDakAchter + 0.025} h={0.17} />}
+        ? <Muurprofiel L={L} yBoven={L.muur.yBoven} h={L.muur.h} />
+        : <Muurprofiel L={L} yBoven={L.muur.yBoven} h={L.muur.h} />}
 
       {/* Kubistische zijomkasting: hetzelfde profiel als de voorbalk, flush met de staander,
           over de volle diepte (bij Cubic XL dus ook langs het overstek, met de afvoerbuis erin). */}
@@ -524,6 +528,20 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
         <Balk key={kant} as="z" b={L.zijBalk} h={L.zijBalk} lengte={L.zij.lengte}
           position={[s * L.zij.x, Hf - L.zijBalk / 2, (L.zij.z0 + L.zij.z1) / 2]} mat={mat.frame} />
       ))}
+      {/* Muuraansluitprofiel tegen de gevel (aanbouw): van de vloer (bij een zijwand of screen) of
+          van de zijbalk (alleen een spie) tot onder het muurprofiel; zijwand en spie sluiten erop aan. */}
+      {!L.vrijstaand && [['links', -1], ['rechts', 1]].map(([kant, s]) => {
+        const w = cfg.wanden[kant]
+        const wand = (w && w.type !== 'open') || cfg.zonwering.screens[kant]
+        const spie = L.spieMogelijk && cfg.spie[kant] !== 'geen'
+        if (!wand && !spie) return null
+        const y0 = wand ? L.vloerY : Hf - L.zijBalk
+        const y1 = L.muur.yOnder - 0.002
+        return (
+          <Balk key={`ma${kant}`} as="y" b={L.zijBalk} h={MUURAANSLUIT} lengte={y1 - y0}
+            position={[s * L.zij.x, (y0 + y1) / 2, 0.004 + MUURAANSLUIT / 2]} mat={mat.frame} />
+        )
+      })}
       {L.spieMogelijk && [['links', -1], ['rechts', 1]].map(([kant, s]) => cfg.spie[kant] !== 'geen' && (
         <Spie key={`spie-${kant}`} L={L} kant={s} type={cfg.spie[kant]} />
       ))}

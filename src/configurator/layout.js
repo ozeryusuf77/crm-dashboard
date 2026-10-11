@@ -7,7 +7,14 @@ import {
 } from './options.js'
 
 export const MUURPROFIEL_D = 0.08  // diepte muurprofiel
+// Hoogte van het muurprofiel: kubus (omkasting) of hellend dak; bovenkant resp. yRand / yDakAchter + 25 mm.
+const MUURPROFIEL_H = { kubus: 0.22, hellend: 0.17 }
+// Verticaal muuraansluitprofiel tegen de gevel (diepte langs z) waar een zijwand, spie of screen
+// op de gevel aansluit; zijwanden en spie beginnen direct vóór dit profiel.
+export const MUURAANSLUIT = 0.04
 const ZIJBALK = 0.06               // zijbalk onder de spie (hellend dak)
+// Een spie is tot deze diepte één vlak; dieper wordt hij in gelijke delen met een tussenstijl gesplitst.
+export const SPIE_DEEL_MAX = 3.8
 
 // Bovenkant van de terrasvloer boven de terrasreferentie (y = 0): tegels liggen
 // 1 cm hoog, een vlonder 3 cm. Staanders, wanden en screens beginnen op L.vloerY.
@@ -109,8 +116,22 @@ export function maakLayout(cfg, { vloer } = {}) {
     achter: achterBalkOnder,
   }
   const zijX = W / 2 - sB / 2
-  const zijZ0 = vrijstaand ? zAchter + sD / 2 : MUURPROFIEL_D + 0.01
+  // Aanbouw: wand/spie beginnen direct vóór het muuraansluitprofiel (4 mm vrij van de gevel);
+  // vrijstaand: tegen de achterstaander.
+  const zijZ0 = vrijstaand ? zAchter + sD / 2 : MUURAANSLUIT + 0.004
   const zijZ1 = zVoorStaander - sD / 2
+  // Muurprofiel (alleen aanbouw): bovenkant, hoogte en onderkant.
+  const muur = kubus
+    ? { yBoven: yRand, h: MUURPROFIEL_H.kubus, yOnder: yRand - MUURPROFIEL_H.kubus }
+    : { yBoven: yDakAchter + 0.025, h: MUURPROFIEL_H.hellend, yOnder: yDakAchter + 0.025 - MUURPROFIEL_H.hellend }
+  // Spie (hellend dak): van de gevel/achterstaander tot 4 mm vóór de dakzijdige wand van de voorgoot;
+  // vrijstaand loopt de bovenrand tot aan de achtergoot (zg) lager, onder die goot door.
+  const spieZ1 = Math.min(zijZ1, D - gootB - 0.004)
+  const spie = {
+    z0: zijZ0, z1: spieZ1,
+    zg: vrijstaand ? gootB + 0.004 : null,
+    delen: Math.max(1, Math.ceil((spieZ1 - zijZ0) / SPIE_DEEL_MAX - 1e-9)),
+  }
 
   // ── Erf (woning, schutting, gazon, terras) ─────────────────────────────────
   // hoofd = breedte van de hoofdwoning, erfX = halve erfbreedte (schutting op ±erfX),
@@ -136,6 +157,7 @@ export function maakLayout(cfg, { vloer } = {}) {
     xStaanders, vakken, liggers, xLiggers, platen,
     achterBalkOnder, wandH, zijBalk: ZIJBALK,
     zij: { x: zijX, z0: zijZ0, z1: zijZ1, lengte: zijZ1 - zijZ0 },
+    muur, spie,
     spieMogelijk: !kubus,
     oppervlak: W * D,
     vloer: vloerKeuze, vloerY,
@@ -331,18 +353,23 @@ export function aantalSchuifPanelen(breedte) {
   return Math.min(maxSporen, Math.max(minSporen, n))
 }
 
-// Breedte van één vleugel van een n-delige schuifpui (kozijn eraf, vleugels overlappen elkaar).
+// Aantal overlappende sluitstijlen in een n-delige pui: buren overlappen elkaar 70 mm, behalve
+// de twee middelste vleugels van een 4-delige pui, die in het midden op elkaar stuiten.
+export const puiOverlappen = n => (n === 4 ? 2 : n - 1)
+
+// Breedte van één vleugel van een n-delige schuifpui (kozijn eraf, overlappen erbij).
 export function puiVleugelBreedte(breedte, n) {
   const { kozijn, overlap } = SCHUIFPUI
-  return (breedte - 2 * kozijn + (n - 1) * overlap) / n
+  return (breedte - 2 * kozijn + puiOverlappen(n) * overlap) / n
 }
 
-// Kan een pui van deze breedte n-delig? Vleugels moeten tussen vleugelMin en vleugelMax blijven.
+// Kan een pui van deze breedte n-delig? Vleugels moeten (op hele cm) tussen vleugelMin en vleugelMax blijven.
 export function puiDelenOptie(breedte, n) {
   const b = puiVleugelBreedte(breedte, n)
   const cm = Math.round(b * 100)
-  if (b < SCHUIFPUI.vleugelMin) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te smal (minimaal ${Math.round(SCHUIFPUI.vleugelMin * 100)} cm)` }
-  if (b > SCHUIFPUI.vleugelMax) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te breed (maximaal ${Math.round(SCHUIFPUI.vleugelMax * 100)} cm)` }
+  const min = Math.round(SCHUIFPUI.vleugelMin * 100), max = Math.round(SCHUIFPUI.vleugelMax * 100)
+  if (cm < min) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te smal (minimaal ${min} cm)` }
+  if (cm > max) return { mogelijk: false, vleugel: b, reden: `vleugels van ${cm} cm zijn te breed (maximaal ${max} cm)` }
   return { mogelijk: true, vleugel: b }
 }
 

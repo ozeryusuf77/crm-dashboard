@@ -115,7 +115,7 @@ export function berekenOfferte(cfg) {
   for (const zijde of L.spieMogelijk ? ['links', 'rechts'] : []) {
     const spie = vind(SPIE_TYPES, cfg.spie[zijde])
     if (spie.id === 'geen') continue
-    regels.push({ label: `${spie.label} — ${ZIJDE_LABEL[zijde]}`, detail: `${cfg.diepte} cm diep`, prijs: L.D * spie.prijsM })
+    regels.push({ label: `${spie.label} — ${ZIJDE_LABEL[zijde]}`, detail: `${cfg.diepte} cm diep${L.spie.delen > 1 ? ` · in ${L.spie.delen} delen met tussenstijl` : ''}`, prijs: L.D * spie.prijsM })
   }
 
   const doek = vind(DOEK_KLEUREN, cfg.zonwering.doek)
