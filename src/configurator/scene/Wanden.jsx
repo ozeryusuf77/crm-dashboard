@@ -52,7 +52,7 @@ function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
     refs.current.forEach((g, i) => { if (g) g.position.x = dicht(i) + (geopend(i) - dicht(i)) * t })
   })
 
-  // Komgreep: metalen ring Ø 50 mm (3 mm op het glas) met daarin een 1 mm verzonken
+  // Komgreep: rvs ring Ø 50 mm (3 mm op het glas) met daarin een 1 mm verzonken
   // donkere kom Ø 36 mm; één geometrie voor alle panelen van deze wand.
   const greepGeom = useMemo(() => {
     const vorm = new THREE.Shape().absarc(0, 0, 0.025, 0, Math.PI * 2, false)
@@ -99,7 +99,7 @@ function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
             <group ref={el => { grepen.current[i] = el; if (el) el.visible = grepenZichtbaar.current }} position={[greepX, 1.0, 0]}>
               {[-1, 1].map(s => (
                 <group key={s}>
-                  <mesh geometry={greepGeom.ring} material={mat.greep} position={[0, 0, s * 0.0065]} />
+                  <mesh geometry={greepGeom.ring} material={mat.rvs} position={[0, 0, s * 0.0065]} />
                   <mesh geometry={greepGeom.kom} material={mat.rubber} position={[0, 0, s * 0.005]} rotation={[Math.PI / 2, 0, 0]} />
                 </group>
               ))}
