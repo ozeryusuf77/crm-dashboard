@@ -102,8 +102,11 @@ export function useModel(naam, set = REKWISIETEN.set, { schaduw = REKWISIETEN.sc
 // zijn (draaiing om de y-as in radialen). Moet in een <Suspense> staan.
 export function Model({ naam, set, position, rotation, scale, schaduw, ...rest }) {
   const object = useModel(naam, set, schaduw === undefined ? undefined : { schaduw })
-  const rot = typeof rotation === 'number' ? [0, rotation, 0] : rotation
-  return createElement('primitive', { object, position, rotation: rot, scale, ...rest })
+  const props = { object, ...rest }
+  if (position) props.position = position
+  if (rotation !== undefined) props.rotation = typeof rotation === 'number' ? [0, rotation, 0] : rotation
+  if (scale !== undefined) props.scale = scale
+  return createElement('primitive', props)
 }
 
 // Vooraf in de cache laden (bijv. voor het standpunt dat als eerste in beeld komt); de
