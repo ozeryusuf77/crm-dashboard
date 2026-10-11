@@ -26,9 +26,12 @@ function afgerondeRechthoek(b, h, r) {
 export function profielGeom(b, h, r = 0.004) {
   const k = `${b.toFixed(4)}|${h.toFixed(4)}|${r}`
   if (!cache.has(k)) {
-    const g = new THREE.ExtrudeGeometry(afgerondeRechthoek(b, h, r), { depth: 1, bevelEnabled: false, curveSegments: 4 })
+    const g = new THREE.ExtrudeGeometry(afgerondeRechthoek(b, h, r), { depth: 1, bevelEnabled: false, curveSegments: 6 })
     g.translate(0, 0, -0.5)
-    const glad = toCreasedNormals(g, Math.PI / 4)
+    // Alleen de hoeksegmenten onderling glad (15°-stappen); de vlakke zijden houden hun eigen
+    // normaal. Met een grotere hoek werden de normalen over de vlakken uitgesmeerd, waardoor een
+    // vierkante staander onder de satijnglans als een cilinder las.
+    const glad = toCreasedNormals(g, 0.3)
     g.dispose()
     cache.set(k, glad)
   }
