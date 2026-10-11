@@ -17,6 +17,9 @@ import './configurator.css'
 
 const BEDIENING_START = { open: {}, screens: {}, onderdak: 0, bovendak: 0, heater: 0 }
 const AFVOER_KANTEN = ['links', 'rechts']
+// Smal scherm (mobiele indeling, zie configurator.css): daar geen dock zonder bedieningsknoppen
+// (de hint is er verborgen, dus het vakje zou leeg zijn).
+const SMAL = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 860px)').matches
 
 // ─── Configuratie in de URL (deelbare link) ──────────────────────────────────
 function leesUrlConfig() {
@@ -372,7 +375,12 @@ export default function VerandaConfigurator() {
     if (huidige === 'dak' && AFVOER_KANTEN.includes(kant)) toggleAfvoerStaander(kant)
     else setToonWaterloop(w => !w)
   }
-  const volgWater = () => kijk('afvoer', afvoerKanten[0] || 'rechts')
+  // Camera op de afvoer; bij twee afvoeren wisselt elke klik tussen de staanders.
+  const volgWater = () => {
+    const k = afvoerKanten
+    const volgende = view.naam === 'afvoer' && view.kant === k[0] && k[1] ? k[1] : (k[0] || 'rechts')
+    kijk('afvoer', volgende)
+  }
   const vloerVolgende = VLOEREN[(VLOEREN.findIndex(v => v.id === cfg.vloer) + 1) % VLOEREN.length] || VLOEREN[0]
 
   // Speel na een keuze kort de beweging af: eerst dicht/opgerold, daarna open/uitgerold.
@@ -481,12 +489,14 @@ export default function VerandaConfigurator() {
               <>
                 <button type="button" className={`vc-pil regen${toonWaterloop ? ' actief' : ''}`} aria-pressed={toonWaterloop}
                   title="Kijk door de hoekstaander om het water te volgen" onClick={() => setToonWaterloop(w => !w)}>Waterloop</button>
-                <button type="button" className={`vc-pil${view.naam === 'afvoer' ? ' actief' : ''}`} title="Camera op de afvoer" onClick={volgWater}>Volg het water</button>
+                <button type="button" className={`vc-pil${view.naam === 'afvoer' ? ' actief' : ''}`} title="Camera op de afvoer" onClick={volgWater}>
+                  Volg het water{afvoerKanten.length > 1 ? (view.kant === 'links' ? ' (rechts)' : ' (links)') : ''}
+                </button>
               </>
             )}
           </div>
 
-          {(bedieningAanwezig || regen || huidige === 'dak') && (
+          {(bedieningAanwezig || (!SMAL && (regen || huidige === 'dak'))) && (
             <div className="vc-dock">
               {bedieningAanwezig && <div className="vc-dock-titel">Bediening</div>}
               <div className="vc-dock-knoppen">

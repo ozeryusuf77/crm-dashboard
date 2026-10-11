@@ -10,11 +10,12 @@ import * as THREE from 'three'
 
 // Verticale beeldhoek (graden) per standpunt. 'buiten' = fotostand op ooghoogte zoals de
 // referentiebeelden (±48°, verticale verticalen); 'binnen' is bewust wijd (rondkijken).
-export const FOV = { buiten: 48, voor: 48, links: 42, rechts: 42, boven: 40, binnen: 62, afvoer: 50, achter: 40 }
+export const FOV = { buiten: 48, voor: 48, links: 42, rechts: 42, boven: 40, binnen: 66, afvoer: 52, achter: 40 }
 
 const OOGHOOGTE = 1.5          // camerahoogte van de fotostand en de voorkant
 const GRAAD = Math.PI / 180
 const VOOR_FOV_MAX = 54        // 'voor': beeldhoek mag oplopen als de tuin te klein is voor de afstand
+const MIN_AFSTAND = 2.5        // minDistance van OrbitControls buiten het binnenstandpunt (Scene.jsx)
 
 // Halve horizontale beeldhoek (rad) bij verticale beeldhoek `fov` (graden) en beeldverhouding `aspect`.
 const halveBreedteHoek = (fov, aspect) => Math.atan(Math.tan((fov * GRAAD) / 2) * aspect)
@@ -77,29 +78,42 @@ export function cameraStandpunt(naam, L, { aspect = 1.6, kant } = {}) {
     case 'boven':
       return { pos: v3(0.001, r * 1.6, L.D / 2 + 1.2), doel: v3(0, 0, L.D / 2), fov: FOV.boven }
     case 'binnen': {
-      // In de hoek bij de gevel, schuin over de loungeset naar de tuin kijkend (rondkijken door te slepen).
-      const pos = v3(L.W / 2 - 0.6, 1.6, L.zAchter + 0.45)
-      const blik = v3(-L.W * 0.2, 1.05, L.D + 1).sub(pos).setLength(0.1)
+      // In de hoek links-achter bij de gevel, schuin over de loungeset naar de hangstoel en de
+      // tuin kijkend (rondkijken door te slepen). Links, zodat de camera nooit in de kuip van
+      // de hangstoel (rechts van het midden) staat.
+      const pos = v3(-(L.W / 2 - 0.7), 1.55, L.zAchter + 0.5)
+      const blik = v3(L.W * 0.3, 1.15, L.D + 1.5).sub(pos).setLength(0.1)
       return { pos, doel: pos.clone().add(blik), fov: FOV.binnen, binnen: true }
     }
     case 'achter':
       return { pos: v3(r * 0.35, 2.2, -r * 0.75), doel: midden, fov: FOV.achter }
     case 'afvoer': {
-      // Schuin van buiten op de hoekstaander met de afvoer: uitloopgat, bocht/kapje en de
-      // waterstraal op het terras in beeld. Bij 'onder' iets lager kijken (gestippelde lijn
-      // onder de vloer); bij 'achter' van opzij onder het dak, met de blik iets naar achteren.
+      // Verhoogd standpunt (goothoogte + 0,8 m) schuin van buiten op de hoekstaander met de
+      // afvoer, zodat dakvlak/dakwater, de open goot (waterband, druppels), de hele staander,
+      // het uitloopgat met bocht/kapje en de plas op het terras in één beeld staan. Bij 'onder'
+      // iets lager kijken (gestippelde lijn onder de vloer).
       const a = afvoerVoor(L, kant)
-      const doel = v3(a.x, a.richting === 'onder' ? 0.6 : 0.9, a.z)
       if (a.richting === 'achter') {
-        doel.z -= 0.3
-        return { pos: v3(a.x + a.s * 2.6, 1.2, Math.max(0.5, a.z - 1.6)), doel, fov: FOV.afvoer }
+        // Uitloop onder de veranda: van binnenuit op de achterkant van de staander (de hangstoel
+        // verbergt zichzelf zodra de camera dichterbij dan 1,2 m komt, zie Meubels.jsx).
+        // OrbitControls (Scene.jsx) houdt buiten het binnenstandpunt minstens 2,5 m tussen camera
+        // en draaipunt; het draaipunt ligt daarom op 2,5 m in dezelfde kijkrichting (net achter
+        // het staandervlak), anders duwt de besturing de camera elk frame naar achteren.
+        const pos = v3(a.x - a.s * 1.5, 1.35, Math.max(0.5, a.z - 1.6))
+        const blik = v3(a.x, 0.8, a.z - 0.15).sub(pos)
+        return { pos, doel: pos.clone().add(blik.setLength(Math.max(blik.length(), MIN_AFSTAND))), fov: 56 }
       }
       // Opzij aan de kant van het gat: buitenwaarts = buiten de veranda (zoals a.s), binnenwaarts
       // (gat in het vlak naar de andere staander) vóór de veranda aan de binnenkant, anders
-      // verbergt de staander zijn eigen uitloop.
+      // verbergt de staander zijn eigen uitloop. De x blijft minstens 0,5 m binnen de schutting
+      // (erfX), zodat de camera vóór de schutting staat en de Zijde-logica (Tuin.jsx) die niet
+      // wegneemt.
+      const xMax = (L.erf?.erfX ?? L.W / 2 + 3) - 0.5
       const nx = Array.isArray(a.n) ? a.n[0] : 0
       const zijde = nx !== 0 ? Math.sign(nx) : a.s
-      return { pos: v3(a.x + zijde * 2.2, 1.35, a.z + 2.9), doel, fov: FOV.afvoer }
+      const pos = v3(THREE.MathUtils.clamp(a.x + zijde * 2.4, -xMax, xMax), L.Hf + 0.8, a.z + 3.4)
+      const doel = v3(a.x, a.richting === 'onder' ? 0.7 : 1.25, a.z)
+      return { pos, doel, fov: FOV.afvoer }
     }
     case 'buiten':
     default: {

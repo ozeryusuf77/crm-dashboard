@@ -18,8 +18,8 @@ const TEGEL_HERHALING = 1.8     // 3 × 3 tegels van 60 cm
 const PLANK_DIKTE = 0.028
 const RANDPLANK = 0.14          // kantplank (kaderplank) langs beide zijkanten van de vlonder
 const OPSLUITBAND = 0.08
-const GRASRAND = 0.12           // strook kale grond rond het terras
-const GROND = '#4a3b2e'
+const GRASRAND = 0.04           // smalle strook grond rond het terras (breder leest als 'grondgoot')
+const GROND = '#5b5a4a'
 
 // In de vlonder-fotoset lopen de planken langs u (horizontaal in de afbeelding); de voegen
 // liggen om de 171 px. De kantplank gebruikt de plank tussen rij 173 en 344 (v ≈ 0,874).

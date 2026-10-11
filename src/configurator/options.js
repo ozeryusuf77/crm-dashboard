@@ -173,7 +173,7 @@ export const EXTRA_PRIJZEN = {
 // buitenste voorstaanders komen in aanmerking (nooit koppel- of achterstaanders).
 export const AFVOER = {
   tapeind: 0.06,    // gootuitloop Ø 60 mm, verloopt in de staander naar de buismaat
-  uitloopH: 0.15,   // hart van het uitloopgat boven de vloer
+  uitloopH: 0.22,   // hart van het uitloopgat boven de vloer (vrije straal ±14 cm onder de bocht)
   stub: 0.05,       // recht stuk buiten het staandervlak vóór de bocht
   been: 0.03,       // neerwaarts eindstuk van de bocht
   kapje: [0.08, 0.06, 0.06],  // aluminium uitloopkapje: breed × hoog × uitsteek

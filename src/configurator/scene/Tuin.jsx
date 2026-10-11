@@ -26,8 +26,8 @@ const BETON_H = 0.26, BETON_D = 0.035, BETON_ONDER = -0.06   // betonplaat 6 cm 
 const PANEEL_ONDER = BETON_ONDER + BETON_H               // 0,20: paneel staat op de betonplaat
 const SCHUTTING_VAN_GEVEL = 0.1                          // zijschuttingen beginnen 10 cm voor de gevel
 const HOUT_HERHALING = 1.2     // 1 herhaling van de hout-fotoset (Poly Haven "Oak Wood Planks")
-const HOUT = '#b58d5a'         // bangkirai-tint over de eiken foto
-const BETON = '#8d8b86'
+const HOUT = '#9c8a6c'         // verweerd grijsbruin (hardhout na een paar seizoenen) over de eiken foto
+const BETON = '#9a9893'
 const GROND = '#3b2e24'
 const BORDER_B = 0.7
 const PAD_B = 1.4, PAD_SMAL = 0.75, PAD_Y = 0.005, PAD_VAN_SCHUTTING = 0.05
@@ -125,12 +125,12 @@ function Hekzijde({ a, b, paalBegin = true, paalEind = true, fotoPaneel, fotoPaa
       <instancedMesh ref={panelen} args={[undefined, undefined, hek.panelen.length]} castShadow receiveShadow>
         <boxGeometry args={[PANEEL_B, PANEEL_H, PANEEL_D]} />
         <FotoMateriaal foto={fotoPaneel && { ...fotoPaneel, roughnessMap: null }} terugval={{ map: terugval.paneel, roughness: 0.95 }}
-          color={HOUT} roughness={0.95} envMapIntensity={0.5} ao={0.7} nat="droog" />
+          color={HOUT} roughness={0.95} envMapIntensity={0.3} ao={0.7} nat="droog" />
       </instancedMesh>
       <instancedMesh ref={palen} args={[undefined, undefined, hek.palen.length]} castShadow receiveShadow>
         <boxGeometry args={[PAAL, PAAL_H, PAAL]} />
         <FotoMateriaal foto={fotoPaal && { ...fotoPaal, roughnessMap: null }} terugval={{ map: terugval.paal, roughness: 0.95 }}
-          color={HOUT} roughness={0.95} envMapIntensity={0.5} ao={0.7} nat="droog" />
+          color={HOUT} roughness={0.95} envMapIntensity={0.3} ao={0.7} nat="droog" />
       </instancedMesh>
       <instancedMesh ref={beton} args={[undefined, undefined, hek.panelen.length]} castShadow receiveShadow>
         <boxGeometry args={[PANEEL_B, BETON_H, BETON_D]} />
@@ -329,8 +329,8 @@ function plaatsing(L, indeling, niveau, meubels, nabij) {
 
   // Struiken in de borders, op volgorde van zichtbaarheid vanaf de fotostand (mobiel: de eerste drie).
   const struiken = [
-    ['struik_groot', [erfX - 0.55, 0, 2.2], { s: 0.95 }],                   // rechts naast het terras
-    ['struik_klein', [-erfX + 0.55, 0, D + 1.0], { s: 1.05 }],               // links, begin van de border
+    ['struik_groot', [erfX - 0.55, 0, 1.2], { s: 0.95 }],                   // rechts naast het terras, achter de staanderlijn (vrij van het afvoerstandpunt)
+    ['struik_klein', [-erfX + 0.55, 0, D + 2.6], { s: 1.05 }],               // links in de border, onder de verhoogde afvoercamera (niet op de zichtlijn)
     ['struik_groot', [-1.8, 0, tuinD - 0.6], { s: 1.0, set: 'laag' }],       // achterborder links van het bankje
     ['struik_klein', [erfX - 0.5, 0, D + 5.0], { s: 0.85, set: 'laag' }],    // rechts, voorbij de bistroset
     ['struik_groot', [-erfX + 0.5, 0, D + 3.2], { s: 0.9, set: 'laag' }],    // links, midden
@@ -348,11 +348,12 @@ function plaatsing(L, indeling, niveau, meubels, nabij) {
   for (const [naam, pos, opties] of bomen.slice(0, niveau.bomen)) voeg(naam, pos, { ...opties, set: 'laag' })
 
   // Potplanten op het terras (bij de meubels): hoge plant naast de linker voorstaander, binnen
-  // de staanderlijn zodat een voorwand of zijwand er niet doorheen loopt; terracottapot rechts.
+  // de staanderlijn zodat een voorwand of zijwand er niet doorheen loopt; terracottapot in de
+  // rechter achterhoek (vrij van de zichtlijn van het afvoerstandpunt bij uitloop 'achter').
   if (meubels) {
     const potten = {
       potplant_hoog: [[-W / 2 + 0.55, vloerY, D - 0.45], { yaw: 0.4 }],
-      potplant_terracotta: [[W / 2 - 0.65, vloerY, D - 0.8], { s: 1.25, yaw: 2.6 }],
+      potplant_terracotta: [[W / 2 - 0.6, vloerY, 0.75], { s: 1.25, yaw: 2.6 }],
     }
     for (const naam of niveau.potten) if (potten[naam]) voeg(naam, ...potten[naam])
   }
@@ -361,7 +362,7 @@ function plaatsing(L, indeling, niveau, meubels, nabij) {
   if (niveau.bistro) voeg('tuinset_bistro', [erfX - 1.5, 0, D + 3.2], { yaw: -0.5, schaduw: true })
   if (niveau.bank) voeg('tuinbank_hout', [1.2, 0, tuinD - 0.6], { yaw: Math.PI, schaduw: true })
   for (let i = 0; i < niveau.plantenbakken; i++) {
-    const z = D + 1.4 + i * 1.1
+    const z = D + 0.9 + i * 1.1
     voeg('plantenbak_hout', [erfX - 0.45, 0, z], { yaw: Math.PI / 2, schaduw: true })
     voeg('struik_laag', [erfX - 0.45, 0.35, z], { s: 0.9, set: 'laag' })
   }

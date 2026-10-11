@@ -4,15 +4,20 @@
 //  - onderaan het uitloopgat met rubber doorvoerring en een PVC-bocht of aluminium
 //    kapje in framekleur, in de door de klant gekozen richting (a.n);
 //  - bovenaan (goot-modellen) het gat in de gootbodem en optioneel de bladvanger;
-//  - in de doorkijk (prop `doorkijk`) de PVC-binnenbuis met trechter en, bij richting
-//    'onder', het gestippelde ondergrondse spoor naar de regenpijp of het riool;
-//  - met `labels` drie uitleglabels langs de waterloop (gootuitloop → staander → uitloop).
+//  - in de doorkijk (prop `doorkijk`) de PVC-binnenbuis met trechter (bij Cubic ook de
+//    bladvanger, die daar in de omkasting zit) en, bij richting 'onder', het gestippelde
+//    ondergrondse spoor naar de regenpijp of het riool; met `doorkijkVlak` (het clipvlak van
+//    de opengesneden staander, Veranda.jsx) wordt de buis met hetzelfde vlak opengesneden,
+//    zodat de halve buis met de waterkolom erin te zien is;
+//  - met `labels` drie uitleglabels langs de waterloop (gootuitloop → staander → uitloop),
+//    naast de onderdelen met een aanwijslijn, onder de overlay-knoppen (zIndexRange).
 // Geen state per frame; eigen geometrie in useMemo met dispose in de cleanup.
 import * as THREE from 'three'
 import { useEffect, useMemo } from 'react'
 import { Html, Line } from '@react-three/drei'
 import { useMat } from './materials.js'
 import { MOBIEL } from './kwaliteit.js'
+import { canvasTex } from './textures.js'
 import { AFVOER, AFVOER_RICHTINGEN, vind } from '../options.js'
 
 // Donker 'gat'-materiaal, één instantie voor alle afvoeren. Met polygonOffset waar de
@@ -24,6 +29,9 @@ const DONKER = new THREE.MeshStandardMaterial({
 const DONKER_VRIJ = new THREE.MeshStandardMaterial({ color: '#0b0c0d', roughness: 1 })
 const SPOOR_KLEUR = '#2f7fd8'
 const LABEL = 'vc-maat'
+// Labels onder de overlay-knoppen (z-index 40 in configurator.css) en zonder klikblokkade.
+const LABEL_PROPS = { center: true, className: LABEL, zIndexRange: [30, 0], wrapperClass: 'vc-maat-wrap' }
+const LIJN = { color: '#ffffff', lineWidth: 1, transparent: true, opacity: 0.7, depthTest: false, renderOrder: 10 }
 
 // Rotatie om y waarmee lokaal +z op de normaal n = [nx, nz] van het staandervlak valt.
 const richtingRotatie = ([nx, nz]) => [0, Math.atan2(nx, nz), 0]
@@ -165,8 +173,9 @@ const hartlijnSleutel = a => `${a.buis}|${a.uitloop}|${a.vlak}|${a.pad.map(p => 
 
 // ─── Onderdelen ─────────────────────────────────────────────────────────────
 
-// Uitloopgat in het staandervlak: rubber doorvoerring 0,5 mm buiten het vlak, met daarin
-// de donkere gatschijf die er 0,5 mm bovenuit steekt (leest op 1–3 m als gat met kraag).
+// Uitloopgat in het staandervlak: brede rubber doorvoerring (6 mm dik) op het vlak, met
+// daarin de donkere gatschijf die 2 mm vóór de ring uitsteekt; rond de stub van de bocht
+// blijft zo een donkere spleet zichtbaar (leest op 1–3 m als gat met kraag).
 function Uitloopgat({ a, mat }) {
   const [nx, nz] = a.n
   const [gx, gy, gz] = a.gat
@@ -175,11 +184,11 @@ function Uitloopgat({ a, mat }) {
   const op = afstand => [gx + nx * (afstand + dik / 2), gy, gz + nz * (afstand + dik / 2)]
   return (
     <group>
-      <mesh name="afvoer-doorvoerring" position={op(0.0005)} rotation={rot} material={mat.rubber}>
-        <cylinderGeometry args={[(a.buis + 0.014) / 2, (a.buis + 0.014) / 2, dik, 24]} />
+      <mesh name="afvoer-doorvoerring" position={op(0.001)} rotation={rot} material={mat.rubber}>
+        <cylinderGeometry args={[(a.buis + 0.034) / 2, (a.buis + 0.034) / 2, 0.006, 32]} />
       </mesh>
-      <mesh name="afvoer-gat" position={op(0.001)} rotation={rot} material={DONKER}>
-        <cylinderGeometry args={[(a.buis + 0.006) / 2, (a.buis + 0.006) / 2, dik, 24]} />
+      <mesh name="afvoer-gat" position={op(0.004)} rotation={rot} material={DONKER}>
+        <cylinderGeometry args={[(a.buis + 0.016) / 2, (a.buis + 0.016) / 2, dik, 32]} />
       </mesh>
     </group>
   )
@@ -191,7 +200,9 @@ function Uitloopgat({ a, mat }) {
 function Bocht({ a, mat }) {
   const r = a.buis
   const y = a.gat[1]
-  const z0 = a.vlak - 0.01, z1 = a.vlak + AFVOER.stub
+  // De stub begint op de voorkant van de doorvoerring (vlak + 6 mm): de donkere spleet
+  // van de gatschijf rond de stub blijft zichtbaar.
+  const z0 = a.vlak + 0.006, z1 = a.vlak + AFVOER.stub
   const yMond = y - r - AFVOER.been
   return (
     <group name="afvoer-uitloop" position={[a.x, 0, a.z]} rotation={richtingRotatie(a.n)}>
@@ -226,7 +237,11 @@ function Kapje({ a, mat }) {
   return (
     <group name="afvoer-uitloop" position={[a.x, 0, a.z]} rotation={richtingRotatie(a.n)}>
       <mesh name="afvoer-kapje-flens" position={[0, y, v + 0.0025]} material={mat.frame} castShadow receiveShadow>
-        <boxGeometry args={[kB + 0.01, kH + 0.02, 0.004]} />
+        <boxGeometry args={[kB + 0.02, kH + 0.02, 0.004]} />
+      </mesh>
+      {/* Donkere schaduwlijst direct onder de flens, zodat de flens los van het vlak leest */}
+      <mesh name="afvoer-kapje-schaduw" position={[0, y - (kH + 0.02) / 2 - 0.001, v + 0.002]} material={DONKER_VRIJ}>
+        <boxGeometry args={[kB + 0.02, 0.002, 0.004]} />
       </mesh>
       <mesh name="afvoer-kapje-boven" position={[0, y + kH / 2 - w / 2, zPlaat]} material={mat.frame} castShadow receiveShadow>
         <boxGeometry args={[kB, w, lPlaat]} />
@@ -246,13 +261,25 @@ function Kapje({ a, mat }) {
   )
 }
 
-// Bladzeef op de gootuitloop: halve bol als draadwerk in rvs.
+// Bladzeef op de gootuitloop: halve bol van rvs-gaas. Het gaas is een alphaMap-masker
+// (zwart met een wit raster van 2 px om de 8 px) met alphaTest, zodat alleen de draden
+// overblijven; DoubleSide zodat ook de binnenkant van de koepel te zien is.
 function Bladvanger({ positie, mat }) {
-  const draad = useMemo(() => Object.assign(mat.rvs.clone(), { wireframe: true }), [mat.rvs])
-  useEffect(() => () => draad.dispose(), [draad])
+  const gaas = useMemo(() => {
+    const masker = canvasTex(64, 64, (g, w, h) => {
+      g.fillStyle = '#000'
+      g.fillRect(0, 0, w, h)
+      g.fillStyle = '#fff'
+      for (let i = 0; i < w; i += 8) { g.fillRect(i, 0, 2, h); g.fillRect(0, i, w, 2) }
+    }, { srgb: false })
+    masker.repeat.set(2, 1)
+    const m = Object.assign(mat.rvs.clone(), { alphaMap: masker, alphaTest: 0.5, side: THREE.DoubleSide })
+    return { masker, m }
+  }, [mat.rvs])
+  useEffect(() => () => { gaas.m.dispose(); gaas.masker.dispose() }, [gaas])
   return (
-    <mesh name="afvoer-bladvanger" position={positie} material={draad}>
-      <sphereGeometry args={[AFVOER.bladvanger, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+    <mesh name="afvoer-bladvanger" position={positie} material={gaas.m}>
+      <sphereGeometry args={[AFVOER.bladvanger, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
     </mesh>
   )
 }
@@ -274,7 +301,10 @@ function Gootuitloop({ L, a, mat }) {
 
 // Doorkijk: de PVC-buis in de staander (van onder de trechter tot net binnen het gat) en de
 // trechter net onder Hf. Bij Cubic XL komt de buis horizontaal uit de zijomkasting: geen trechter.
-function Binnenbuis({ L, a, mat }) {
+// Met `doorkijkVlak` krijgen buis en trechter een kloon van mat.pvc met dat clipvlak (de
+// opengesneden staander), zodat de halve buis met de waterkolom erin zichtbaar is; mat.pvc
+// zelf blijft zonder vlak. Bij Cubic/Cubic XL zit de bladvanger in de omkasting: hier tekenen.
+function Binnenbuis({ L, a, mat, doorkijkVlak = null }) {
   const yTrechter = L.Hf - 0.035
   const sleutel = hartlijnSleutel(a)
   const geom = useMemo(
@@ -283,14 +313,18 @@ function Binnenbuis({ L, a, mat }) {
     [sleutel, L.Hf, L.overstek],
   )
   useEffect(() => () => geom.dispose(), [geom])
+  const gesneden = useMemo(() => (doorkijkVlak ? Object.assign(mat.pvc.clone(), { clippingPlanes: [doorkijkVlak] }) : null), [mat.pvc, doorkijkVlak])
+  useEffect(() => () => gesneden?.dispose(), [gesneden])
+  const pvc = gesneden || mat.pvc
   return (
     <group>
-      <mesh name="afvoer-binnenbuis" geometry={geom} material={mat.pvc} renderOrder={5.5} />
+      <mesh name="afvoer-binnenbuis" geometry={geom} material={pvc} renderOrder={5.5} />
       {!L.overstek && (
-        <mesh name="afvoer-trechter" position={[a.x, yTrechter, a.z]} material={mat.pvc} renderOrder={5.5}>
+        <mesh name="afvoer-trechter" position={[a.x, yTrechter, a.z]} material={pvc} renderOrder={5.5}>
           <cylinderGeometry args={[a.buis * 0.9, a.buis / 2 + 0.0005, 0.06, 16, 1, true]} />
         </mesh>
       )}
+      {L.kubus && a.bladvanger && <Bladvanger positie={L.overstek ? [a.x, L.Hf - 0.04, a.z] : [a.x, yTrechter + 0.035, a.z]} mat={mat} />}
     </group>
   )
 }
@@ -305,32 +339,38 @@ function OndergrondsSpoor({ a }) {
     <group>
       <Line points={punten} color={SPOOR_KLEUR} lineWidth={2} dashed dashSize={0.06} gapSize={0.04}
         depthTest={false} transparent opacity={0.9} renderOrder={10} />
-      <Html position={[eind[0], eind[1], eind[2] - 0.05]} center className={LABEL}>naar regenpijp / riool</Html>
+      <Html position={[eind[0], eind[1], eind[2] - 0.05]} {...LABEL_PROPS}>naar regenpijp / riool</Html>
     </group>
   )
 }
 
-// Uitleglabels langs de waterloop: gootuitloop, halverwege de staander, bij de uitloop.
+// Uitleglabels langs de waterloop: gootuitloop, halverwege de staander, bij de uitloop. De
+// labels bij goot en mond staan er schuin naast (dekken bocht/mond niet af) met een dunne
+// witte aanwijslijn naar het onderdeel; bij 'onder' staat het uitlooplabel boven het spoor.
 function Uitleg({ a }) {
   const [nx, nz] = a.n
   const onder = a.richting === 'onder'
   const yOnder = onder ? a.pad[a.pad.length - 3][1] : a.gat[1]
   const richting = onder ? 'ondergronds' : vind(AFVOER_RICHTINGEN, a.richting).label.toLowerCase()
-  const uitloop = onder ? [a.x, yOnder + 0.06, a.z] : [a.mond[0] + nx * 0.08, a.mond[1] + 0.05, a.mond[2] + nz * 0.08]
+  const goot = [a.top[0] + a.s * 0.30, a.top[1] - 0.16, a.top[2] + 0.28]
+  const uitloop = onder ? [a.x, yOnder + 0.06, a.z] : [a.mond[0] + nx * 0.32 + a.s * 0.10, a.mond[1] + 0.26, a.mond[2] + nz * 0.32 + 0.12]
   return (
     <group>
-      <Html position={[a.top[0], a.top[1] + 0.06, a.top[2]]} center className={LABEL}>gootuitloop</Html>
-      <Html position={[a.x + a.s * 0.32, (a.top[1] + yOnder) / 2, a.z]} center className={LABEL}>
+      <Html position={goot} {...LABEL_PROPS}>gootuitloop</Html>
+      <Line points={[goot, a.top]} {...LIJN} />
+      <Html position={[a.x + a.s * 0.32, (a.top[1] + yOnder) / 2, a.z]} {...LABEL_PROPS}>
         afvoer in de staander Ø {Math.round(a.buis * 1000)} mm
       </Html>
-      <Html position={uitloop} center className={LABEL}>uitloop {richting}</Html>
+      <Html position={uitloop} {...LABEL_PROPS}>uitloop {richting}</Html>
+      {!onder && <Line points={[uitloop, a.mond]} {...LIJN} />}
     </group>
   )
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AfvoerInStaander({ L, a, doorkijk = false, labels = false }) {
+// doorkijkVlak: THREE.Plane van de opengesneden staander (Veranda.jsx), alleen bij doorkijk.
+export function AfvoerInStaander({ L, a, doorkijk = false, labels = false, doorkijkVlak = null }) {
   const mat = useMat()
   if (!a || !mat) return null
   const onder = a.richting === 'onder'
@@ -339,7 +379,7 @@ export function AfvoerInStaander({ L, a, doorkijk = false, labels = false }) {
       {!onder && a.uitloop !== 'kapje' && <Uitloopgat a={a} mat={mat} />}
       {!onder && (a.uitloop === 'kapje' ? <Kapje a={a} mat={mat} /> : <Bocht a={a} mat={mat} />)}
       {!L.kubus && <Gootuitloop L={L} a={a} mat={mat} />}
-      {doorkijk && <Binnenbuis L={L} a={a} mat={mat} />}
+      {doorkijk && <Binnenbuis L={L} a={a} mat={mat} doorkijkVlak={doorkijkVlak} />}
       {doorkijk && onder && <OndergrondsSpoor a={a} />}
       {labels && <Uitleg a={a} />}
     </group>

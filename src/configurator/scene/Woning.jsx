@@ -12,6 +12,7 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { baksteen, hout } from './textures.js'
 import { useFotoTexturen, FotoMateriaal } from './fotoTexturen.js'
+import { natShader } from './regenNat.js'
 import { useMat } from './materials.js'
 
 // LTC-tabellen voor rectAreaLight (het licht uit de pui op het terras). Idempotent en op
@@ -44,7 +45,7 @@ const NOK_H = 3.4, OVERSTEK = 0.4, DAK_DIKTE = 0.05
 // 'camera' staat op de buitenwereld belicht, zoals in ref1), 's avonds ongedempt zodat de
 // lampen de kamer vullen. Alleen het belichte deel wordt gedempt, emissie niet. Eén
 // gedeelde uniform voor alle interieurmaterialen; Panden zet hem synchroon per render.
-const DEMP_DAG = 0.22
+const DEMP_DAG = 0.06   // gemeten op de fotostand: pui-glas bij 0,10 nog (58,65,77); de rest is spiegeling van het glas zelf
 const INTERIEUR_DEMP = { value: DEMP_DAG }
 const dempShader = shader => {
   shader.uniforms.uDemp = INTERIEUR_DEMP
@@ -55,6 +56,16 @@ const dempShader = shader => {
 }
 const dempKey = () => 'interieur-demp'
 const DEMP = { onBeforeCompile: dempShader, customProgramCacheKey: dempKey }
+
+// Baksteen van de hoofdgevel: dezelfde natte look als de overige FotoMaterialen (natShader,
+// zonder `nat`-prop) plus een lichte ontzadiging (72 % van de kleur blijft) — de Poly Haven
+// "Red Brick" is roder dan het bruinrode metselwerk van ref1/ref2.
+const baksteenShader = shader => {
+  natShader(false)(shader)
+  shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>',
+    '#include <map_fragment>\n  diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, 0.72);')
+}
+const baksteenKey = () => 'nat-0-baksteen'
 
 function useGeometrie(maak, deps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,7 +248,7 @@ function Kamer({ x, b, nacht, vloerFoto, vloerTerugval }) {
       {/* Hanglamp boven de zithoek; 's avonds de lichtbron van de kamer */}
       <mesh position={[0, 2.25, zBank + 0.2]}>
         <sphereGeometry args={[0.13, 20, 14]} />
-        <meshStandardMaterial color="#efe9dc" roughness={0.6} emissive="#ffe3b8" emissiveIntensity={nacht ? 4 : 0} envMapIntensity={0.3} {...DEMP} />
+        <meshStandardMaterial color="#efe9dc" roughness={0.6} emissive="#ffe3b8" emissiveIntensity={nacht ? 2.5 : 0} envMapIntensity={0.3} {...DEMP} />
       </mesh>
       <mesh position={[0, 2.5, zBank + 0.2]}><cylinderGeometry args={[0.006, 0.006, 0.3, 6]} /><meshStandardMaterial color="#2a2a2c" {...DEMP} /></mesh>
       {nacht && <pointLight color="#ffd9a0" intensity={2.5} distance={7} decay={2} position={[0, 2.4, zBank + 0.2]} />}
@@ -368,7 +379,10 @@ function Panden({ L, nacht, hoog }) {
   const wigRechts = useGeometrie(() => wigGeometrie(-erfX, erfX + BUUR_B, 0, run), [erfX, run])
 
   // Metselwerk-materialen: buitenkant (uv in meters), dagkanten en de binnenkant (stuc).
-  const baksteenGevel = attach => <FotoMateriaal attach={attach} foto={gevel} terugval={steenTerugval} normalScale={[0.7, 0.7]} ao={0.6} nat="droog" />
+  const baksteenGevel = attach => (
+    <FotoMateriaal attach={attach} foto={gevel} terugval={steenTerugval} normalScale={[0.7, 0.7]} ao={0.85} color="#f0ebe4"
+      onBeforeCompile={baksteenShader} customProgramCacheKey={baksteenKey} />
+  )
   const stuc = attach => <meshStandardMaterial attach={attach} color={WAND} roughness={0.9} envMapIntensity={0.3} {...DEMP} />
   const witMetselwerk = (reliëf, attach) => (
     <FotoMateriaal attach={attach} foto={reliëf} terugval={{}} color="#e8e4dc" roughness={0.95} normalScale={[0.5, 0.5]} nat="droog" />
@@ -412,7 +426,12 @@ function Panden({ L, nacht, hoog }) {
     </group>
   )
 
-  const kamerLicht = { wand: '#e6e3dc', plafond: '#f1efe9', vloerKleur: '#a89b86', envMap: 0.3, emissie: nacht ? 1.0 : 0 }
+  // Kamers achter de bovenramen: overdag donker en koel (de ramen moeten donkerder lezen dan de
+  // baksteen, zoals in ref1), 's avonds lichte wanden met zachte emissie plus een pointLight per
+  // raam voor een verloop in plaats van een egaal gloeiende box.
+  const kamerLicht = nacht
+    ? { wand: '#e6e3dc', plafond: '#f1efe9', vloerKleur: '#a89b86', envMap: 0.3, emissie: 0.45 }
+    : { wand: '#8f8a82', plafond: '#9a958d', vloerKleur: '#6e6457', envMap: 0.12, emissie: 0 }
   const kamerDonker = verlicht => ({ wand: '#2e3133', plafond: '#3a3c3e', vloerKleur: '#2a2c2e', envMap: 0.2, emissie: nacht && verlicht ? 0.9 : 0 })
 
   // Ramen van een buurpand: twee op de verdieping en één beneden; `verlicht` = welk raam
@@ -452,10 +471,13 @@ function Panden({ L, nacht, hoog }) {
         </group>
       ))}
       {/* Licht uit de pui op het terras ('s avonds, alleen desktop). */}
-      {hoog && nacht && <rectAreaLight args={['#ffd9a0', 2, 2 * b + 0.6, PUI_H - 0.02]} position={[0, PUI_H / 2 + 0.05, 0.08]} rotation={[0, Math.PI, 0]} />}
+      {hoog && nacht && <rectAreaLight args={['#ffd9a0', 0.7, 2 * b + 0.6, PUI_H - 0.02]} position={[0, PUI_H / 2 + 0.05, 0.08]} rotation={[0, Math.PI, 0]} />}
 
       {[-xRaam, 0, xRaam].map(x => (
-        <Raam key={x} x={x} y={yRaam} b={RAAM_B} h={RAAM_H} glas={glas} kamer={kamerLicht} />
+        <group key={x}>
+          <Raam x={x} y={yRaam} b={RAAM_B} h={RAAM_H} glas={glas} kamer={kamerLicht} />
+          {hoog && nacht && <pointLight color="#ffd9a0" intensity={1.2} distance={4} decay={2} position={[x, yRaam + 0.3, -0.6]} />}
+        </group>
       ))}
       <Regenpijp x={hoofd / 2 - 0.35} goot={goot} zGoot={zGoot} />
 

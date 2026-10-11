@@ -155,7 +155,8 @@ function Grasrand({ L, aantal }) {
   const { terrasW, terrasD, terrasZ, z0, z1 } = terrasMaten(L)
   const { erfX, tuinD } = L.erf
   const masker = useMemo(() => sprietMasker(), [])
-  const geom = useMemo(() => gekruisteKaartjes(0.12, 0.18), [])
+  // Korte, lichte en dichte pollen (gemaaide rand): hoge, donkere kaartjes lezen als stekels.
+  const geom = useMemo(() => gekruisteKaartjes(0.10, 0.09), [])
   useEffect(() => () => { masker.dispose(); geom.dispose() }, [masker, geom])
   const mesh = useRef()
 
@@ -173,9 +174,9 @@ function Grasrand({ L, aantal }) {
     const xMin = -erfX + 1.6, xMax = erfX - 0.8, zMin = L.vrijstaand ? -1.5 : 0.02, zMax = tuinD - 0.8
     const opTerras = (x, z) => Math.abs(x) < bx && z > bz0 && z < bz1
     const vrij = (x, z) => x > xMin && x < xMax && z > zMin && z < zMax && !opTerras(x, z)
-    // Afstand tot de terrasrand: dichtbij dichter bezet (macht 2,2), tot 1,2 m.
+    // Afstand tot de terrasrand: dichtbij dichter bezet (macht 2,2), tot 0,47 m.
     const kandidaat = () => {
-      const d = 0.02 + 1.18 * Math.pow(r(), 2.6)
+      const d = 0.02 + 0.45 * Math.pow(r(), 2.2)
       if (!L.vrijstaand && r() < 0.22) {
         // Langs de gevelborder (0,6 m diep) naast het terras.
         const kant = r() < 0.5 ? -1 : 1
@@ -201,8 +202,8 @@ function Grasrand({ L, aantal }) {
       q.setFromAxisAngle(as, r() * Math.PI)
       s.set(schaal, schaal * (0.85 + r() * 0.3), schaal)
       m.setMatrixAt(n, M.compose(p, q, s))
-      // Lichte variatie: iets geler of iets donkerder groen per pol.
-      kleur.setRGB(0.6 + r() * 0.35, 0.62 + r() * 0.3, 0.55 + r() * 0.3)
+      // Lichte variatie rond de materiaalkleur: iets geler of iets frisser groen per pol.
+      kleur.setRGB(0.85 + r() * 0.3, 0.9 + r() * 0.25, 0.75 + r() * 0.3)
       m.setColorAt(n, kleur)
       n++
     }
@@ -214,7 +215,7 @@ function Grasrand({ L, aantal }) {
 
   return (
     <instancedMesh ref={mesh} args={[geom, undefined, aantal]} receiveShadow>
-      <meshStandardMaterial color="#55762a" roughness={1} envMapIntensity={0.45} side={THREE.DoubleSide} alphaMap={masker} alphaTest={0.5}
+      <meshStandardMaterial color="#7a9b3c" roughness={1} envMapIntensity={0.45} side={THREE.DoubleSide} alphaMap={masker} alphaTest={0.5}
         onBeforeCompile={natShader(false)} customProgramCacheKey={natKeyFn(false)} />
     </instancedMesh>
   )

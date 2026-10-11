@@ -8,6 +8,7 @@
 // Assen: x = breedte (0 = midden), y = omhoog (0 = vloer van de set), z = diepte (+z = tuin).
 import * as THREE from 'three'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { hout, rotan, rng } from './textures.js'
@@ -21,8 +22,8 @@ const SIERKUSSENS = ['#d8c7a4', '#a9b49a']
 const KLEED = '#b6ab98'
 const STAAL = '#2a2b2d'            // gepoedercoat stalen buisframe van de bijzettafels
 const KETTING = '#9a9a9a'          // verzinkte ketting en ringen van de hangstoel
-const ROTAN = '#c9a66b'
-const ROTAN_DICHT = '#b89a62'
+const ROTAN = '#c6b28c'            // gebleekt naturel rotan (ref1), mat: geen goudgaas
+const ROTAN_DICHT = '#b8a67f'
 
 // Bank (breedte volgt uit L.W), y-maten zijn hartlijnen boven de vloer
 const BANK_MAX = 2.2
@@ -47,6 +48,7 @@ const KLEED_D = 2.0, KLEED_DIKTE = 0.012
 // Hangstoel: eivormige rotan kuip (bol r 0,5, verticaal 1,15× gerekt) aan een ketting van de
 // ligger tot de bovenring van de kuip (op ca. 1,50 m)
 const KUIP_R = 0.5, KUIP_REK = 1.15, KUIP_Y = 0.95
+const KUIP_VANGNET = 1.2            // kuip onzichtbaar zodra de camera dichterbij dan dit komt
 const SCHAKEL_R = 0.011, SCHAKEL_D = 0.0025, SCHAKEL_STAP = 0.016
 const BOVENRING_R = 0.10, BOVENRING_D = 0.012
 const HANG_WANDVRIJ = 0.6           // minimale afstand ligger → zijwand
@@ -268,8 +270,16 @@ function bouwRingen(kettingTop, fijn) {
   return { geom: voegSamen([bovenring, oog, schacht, haak]), kettingOnder: bovenringY + BOVENRING_D + 0.02 }
 }
 
-function Hangstoel({ h, fijn, segmenten, hoog }) {
+function Hangstoel({ h, fijn, segmenten, hoog, vloerY = 0 }) {
   const { x, z, kettingTop } = h
+  // Vangnet: staat de camera (bijna) ín de kuip — kan alleen door zelf rond te slepen; het
+  // binnen- en het afvoerstandpunt 'achter' staan er nooit in — dan verdwijnt de hangstoel in
+  // plaats van het beeld te vullen met vlechtwerk.
+  const groep = useRef()
+  const kuipMidden = useMemo(() => new THREE.Vector3(x, vloerY + KUIP_Y + 0.3, z), [x, z, vloerY])
+  useFrame(({ camera }) => {
+    if (groep.current) groep.current.visible = camera.position.distanceTo(kuipMidden) >= KUIP_VANGNET
+  })
   const vlecht = useMemo(() => { const t = rotan(); t.repeat.set(12, 8); return t }, [])
   const kuip = useMemo(() => bouwKuip(fijn), [fijn])
   const kussens = useMemo(() => voegSamen([
@@ -304,11 +314,11 @@ function Hangstoel({ h, fijn, segmenten, hoog }) {
   }, [nSchakels, kettingBoven])
 
   return (
-    <group position={[x, 0, z]}>
+    <group ref={groep} position={[x, 0, z]}>
       <mesh geometry={kuip} castShadow receiveShadow>
         {REKWISIETEN.hangstoelRotan
-          ? <meshStandardMaterial color={ROTAN} roughness={0.85} side={THREE.DoubleSide} alphaMap={vlecht} alphaTest={0.5} />
-          : <meshStandardMaterial color={ROTAN_DICHT} roughness={0.85} side={THREE.DoubleSide} />}
+          ? <meshStandardMaterial color={ROTAN} roughness={0.95} envMapIntensity={0.5} side={THREE.DoubleSide} alphaMap={vlecht} alphaTest={0.5} />
+          : <meshStandardMaterial color={ROTAN_DICHT} roughness={0.95} envMapIntensity={0.5} side={THREE.DoubleSide} />}
       </mesh>
       <mesh geometry={kussens} castShadow receiveShadow>
         <meshStandardMaterial vertexColors roughness={1} />
@@ -353,7 +363,7 @@ export function Meubels({ L, hoog = !MOBIEL }) {
         <boxGeometry args={[ind.kleed.b, KLEED_DIKTE, ind.kleed.d]} />
         <meshStandardMaterial color={KLEED} roughness={1} />
       </mesh>
-      {ind.hangstoel && <Hangstoel h={ind.hangstoel} fijn={fijn} segmenten={segmenten} hoog={hoog} />}
+      {ind.hangstoel && <Hangstoel h={ind.hangstoel} fijn={fijn} segmenten={segmenten} hoog={hoog} vloerY={L.vloerY} />}
     </group>
   )
 }

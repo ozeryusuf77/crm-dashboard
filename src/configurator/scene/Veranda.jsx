@@ -1,4 +1,4 @@
-// Het aluminium frame per model: staanders (met voet, kap, hover/klik en doorkijk voor
+// Het aluminium frame per model: staanders (met voet, kap, hover/klik en cutaway voor
 // de hemelwaterafvoer), open goot of kubistische omkasting, muurprofiel, liggers met
 // afdekkap en EPDM-rubbers, dakplaten (met dither-schaduw), spieën en koppelingen, plus
 // de verlichting/heater die aan het frame hangen. De afvoer zelf (uitloopgat, bocht of
@@ -251,33 +251,22 @@ function Spie({ L, kant, type }) {
 }
 
 // ─── Staander ────────────────────────────────────────────────────────────────
-// Randlijnen van de doorkijk-staander (lengte 1 langs lokale z, zoals profielGeom): de
-// omtrek van boven- en onderkant uit EdgesGeometry plus vier lengtelijnen op het midden
-// van de afgeronde hoeken. (EdgesGeometry alleen levert geen lengtelijnen op: de facetten
-// van de 6 mm afronding staan 22,5° op elkaar, onder de drempel van 30°.)
-function doorkijkRanden(b, h, r) {
-  const kop = new THREE.EdgesGeometry(profielGeom(b, h, r), 30)
-  const pos = Array.from(kop.attributes.position.array)
-  kop.dispose()
-  const k = r * (1 - Math.SQRT1_2)
-  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-    pos.push(sx * (b / 2 - k), sy * (h / 2 - k), -0.5, sx * (b / 2 - k), sy * (h / 2 - k), 0.5)
-  }
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  return g
-}
+// Hulpvectoren voor het clipvlak van de opengesneden afvoerstaander (geen allocatie per frame).
+const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _p = new THREE.Vector3()
 
 // Staander van de vloer (L.vloerY) tot `hoogte`, met voet (voetkap bij Cubic, voetplaat met
 // rvs dopmoeren bij Classic/Linea) en bij de goot-modellen een staanderkap onder de goot.
 // `kant` ('links'|'rechts') maakt een buitenste voorstaander aanklikbaar (hover-markering);
-// `afvoer` markeert de staander met de hemelwaterafvoer, die bij `doorkijk` half doorzichtig
-// wordt met randlijnen (renderOrder 6), zodat binnenbuis en waterkolom zichtbaar zijn.
-function Staander({ L, x, z, hoogte, afvoer = false, doorkijk = false, kant = null, onKlikStaander }) {
+// `afvoer` markeert de staander met de hemelwaterafvoer. Bij `doorkijk` wordt die staander
+// opengesneden (cutaway) met het clipvlak `vlak` (gedeeld met AfvoerInStaander, zodat buis en
+// staander op dezelfde plek open liggen): de camerakant tot 12 mm vóór het hart valt weg, de
+// binnenwand wordt donker getekend en de PVC-buis Ø 50/60 met de waterkolom blijft zichtbaar.
+function Staander({ L, x, z, hoogte, afvoer = false, doorkijk = false, vlak = null, kant = null, onKlikStaander }) {
   const mat = useMat()
   const lengte = hoogte - L.vloerY
   const klik = !!(kant && onKlikStaander)
   const [hover, setHover] = useState(false)
+  const zichtbaar = afvoer && doorkijk && !!vlak
 
   // Hover-markering: eigen kloon van het framemateriaal met lichte emissie in de framekleur.
   const hoverMat = useMemo(() => (klik ? natHook(mat.frame.clone()) : null), [klik, mat.frame])
@@ -289,11 +278,29 @@ function Staander({ L, x, z, hoogte, afvoer = false, doorkijk = false, kant = nu
   }
   useEffect(() => () => { if (hover) document.body.style.cursor = '' }, [hover])
 
-  // Doorkijk: randlijnen in een donkere tint van de framekleur.
-  const randen = useMemo(() => (afvoer ? doorkijkRanden(L.sB, L.sD, 0.006) : null), [afvoer, L.sB, L.sD])
-  const lijnMat = useMemo(() => (afvoer ? new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 }) : null), [afvoer])
-  useEffect(() => () => { randen?.dispose(); lijnMat?.dispose() }, [randen, lijnMat])
-  if (lijnMat) lijnMat.color.copy(mat.frame.color).multiplyScalar(0.5)
+  // Cutaway: gesneden kloon van het framemateriaal (schaduw mee gesneden) en een donkere
+  // binnenwand (BackSide) op hetzelfde profiel, beide met hetzelfde clipvlak.
+  const snede = useMemo(() => (zichtbaar
+    ? Object.assign(natHook(mat.frame.clone()), { clippingPlanes: [vlak], clipShadows: true })
+    : null), [zichtbaar, mat.frame, vlak])
+  const binnenwand = useMemo(() => (zichtbaar
+    ? new THREE.MeshStandardMaterial({ color: '#15171a', roughness: 0.9, side: THREE.BackSide, clippingPlanes: [vlak] })
+    : null), [zichtbaar, vlak])
+  useEffect(() => () => { snede?.dispose(); binnenwand?.dispose() }, [snede, binnenwand])
+  if (snede) {
+    snede.color.copy(mat.frame.color)
+    snede.emissive.copy(mat.frame.color).multiplyScalar(hover ? 0.15 : 0)
+    snede.metalness = mat.frame.metalness
+  }
+  // Clipvlak per frame op de camera richten: normaal van de camera af, 12 mm vóór het hart.
+  useFrame(({ camera }) => {
+    if (!zichtbaar) return
+    _v.set(camera.position.x - x, 0, camera.position.z - z)
+    if (_v.lengthSq() < 1e-8) _v.set(0, 0, 1)
+    _v.normalize()
+    _p.set(x, 0, z).addScaledVector(_v, 0.012)
+    vlak.setFromNormalAndCoplanarPoint(_n.copy(_v).negate(), _p)
+  })
 
   let handlers = {}
   if (klik) {
@@ -305,14 +312,14 @@ function Staander({ L, x, z, hoogte, afvoer = false, doorkijk = false, kant = nu
     }
   }
 
-  const zichtbaar = afvoer && doorkijk
-  const m = zichtbaar ? mat.frameDoorkijk : hover && hoverMat ? hoverMat : mat.frame
+  const geom = profielGeom(L.sB, L.sD, 0.006)
+  const m = zichtbaar ? snede : hover && hoverMat ? hoverMat : mat.frame
   const yVoet = L.vloerY
   return (
     <group position={[x, 0, z]} {...handlers}>
       <group position={[0, yVoet + lengte / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1, lengte]}>
-        <mesh geometry={profielGeom(L.sB, L.sD, 0.006)} material={m} castShadow receiveShadow renderOrder={zichtbaar ? 6 : 0} />
-        {zichtbaar && <lineSegments geometry={randen} material={lijnMat} renderOrder={6.5} />}
+        <mesh geometry={geom} material={m} castShadow receiveShadow />
+        {zichtbaar && <mesh geometry={geom} material={binnenwand} />}
       </group>
       {L.kubus ? (
         // Voetkap over de inwendige stelvoet.
@@ -357,7 +364,8 @@ function spotPosities(L, n) {
 }
 
 // ─── Veranda ─────────────────────────────────────────────────────────────────
-// doorkijk: afvoerstaander(s) half doorzichtig met binnenbuis (regenmodus / afvoerkeuze).
+// doorkijk: afvoerstaander(s) opengesneden (cutaway) met zichtbare binnenbuis (regenmodus /
+// afvoerkeuze); vereist renderer.localClippingEnabled (Scene.jsx).
 // onKlikStaander(kant): klik op een buitenste voorstaander ('links'|'rechts').
 // afvoerLabels: uitleglabels langs de waterloop (alleen samen met doorkijk; standpunt 'afvoer').
 export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, onKlikStaander, afvoerLabels = false }) {
@@ -415,18 +423,26 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
   const dakSchaduw = MOBIEL ? { castShadow: mat.dakSchaduw } : {
     castShadow: true, customDepthMaterial: mat.dakSchaduw ? mat.dakDiepteOpaal : mat.dakDiepte,
   }
-  const isAfvoerStaander = x => afvoeren.some(a => Math.abs(a.x - x) < 1e-6)
+  const afvoerBij = x => afvoeren.find(a => Math.abs(a.x - x) < 1e-6)
   const nStaanders = L.xStaanders.length
+  // Eén stabiel clipvlak per afvoer (gedeeld door Staander en AfvoerInStaander); de Staander
+  // richt het elk frame op de camera. Alleen opnieuw aanmaken als de set afvoeren wisselt.
+  const afvoerKanten = afvoeren.map(a => a.kant).join(',')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const vlakken = useMemo(() => Object.fromEntries(afvoeren.map(a => [a.kant, new THREE.Plane()])), [afvoerKanten])
 
   return (
     <group>
       {/* Staanders voor (bij Cubic XL op de draagbalklijn, 1 m achter de voorrand); de twee
           buitenste zijn aanklikbaar en kunnen de afvoer dragen. */}
-      {L.xStaanders.map((x, i) => (
-        <Staander key={`sv${i}`} L={L} x={x} z={L.zVoorStaander} hoogte={hVoor}
-          kant={i === 0 ? 'links' : i === nStaanders - 1 ? 'rechts' : null}
-          afvoer={isAfvoerStaander(x)} doorkijk={doorkijk} onKlikStaander={onKlikStaander} />
-      ))}
+      {L.xStaanders.map((x, i) => {
+        const a = afvoerBij(x)
+        return (
+          <Staander key={`sv${i}`} L={L} x={x} z={L.zVoorStaander} hoogte={hVoor}
+            kant={i === 0 ? 'links' : i === nStaanders - 1 ? 'rechts' : null}
+            afvoer={!!a} doorkijk={doorkijk} vlak={a ? vlakken[a.kant] : null} onKlikStaander={onKlikStaander} />
+        )
+      })}
 
       {/* Voorzijde: goot of omkasting */}
       {L.kubus
@@ -481,7 +497,7 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
       {L.platen.map((p, i) => (
         // Bovenkant van de plaat 4 mm boven de liggerbovenkant (dakY); Regen.jsx rekent daarmee.
         <group key={`p${i}`} position={[p.x, L.dakY(zMid), zMid]} rotation={[L.helling, 0, 0]}>
-          <mesh material={mat.dak} position={[0, -dikte / 2 + 0.004, zLigger]} renderOrder={2} receiveShadow {...dakSchaduw}>
+          <mesh material={mat.dak} position={[0, -dikte / 2 + 0.004, zLigger]} renderOrder={2} {...dakSchaduw}>
             <boxGeometry args={[p.b, dikte, lengteLigger]} />
           </mesh>
         </group>
@@ -502,7 +518,8 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
 
       {/* Hemelwaterafvoer door de gekozen hoekstaander(s): gat, bocht/kapje, gootgat, binnenbuis */}
       {afvoeren.map(a => (
-        <AfvoerInStaander key={a.kant} L={L} a={a} doorkijk={doorkijk} labels={doorkijk && afvoerLabels} />
+        <AfvoerInStaander key={a.kant} L={L} a={a} doorkijk={doorkijk} labels={doorkijk && afvoerLabels}
+          doorkijkVlak={doorkijk ? vlakken[a.kant] : null} />
       ))}
 
       {/* LED-spots */}

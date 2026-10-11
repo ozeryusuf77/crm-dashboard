@@ -55,6 +55,9 @@
 .vc-dock-hint { font-size: 11px; color: var(--vc-zacht); margin-top: 7px; }
 .vc-binnen-hint { position: absolute; bottom: 12px; right: 12px; background: rgba(10,35,66,0.82); color: #fff; padding: 7px 12px; border-radius: 999px; font-size: 12px; pointer-events: none; }
 .vc-maat { background: rgba(20,30,45,0.78); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none; user-select: none; }
+/* Overlays boven de 3D-labels (drei-Html krijgt zIndexRange [30, 0]); de label-wrapper vangt geen klikken. */
+.vc-standpunten, .vc-weergave, .vc-dock, .vc-binnen-hint { z-index: 40; }
+.vc-maat-wrap { pointer-events: none; }
 
 /* Panelen: kaarten, chips, schakelaars */
 .vc-groep-titel { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vc-zacht); margin: 18px 0 8px; }
@@ -172,16 +175,17 @@
   .vc-merk-sub { display: none; }
   .vc-stappen { justify-content: flex-start; }
   .vc-lijf { flex-direction: column; }
-  .vc-podium { flex: none; height: 48vh; }
+  .vc-podium { flex: none; height: 52vh; }
   .vc-paneel { width: 100%; flex: 1; min-height: 0; border-left: 0; border-top: 1px solid var(--vc-rand); }
   .vc-paneel-inhoud { padding: 14px 16px 18px; }
   .vc-standpunt span { display: none; }
   .vc-modellen { grid-template-columns: 1fr 1fr; }
-  .vc-weergave { top: auto; bottom: 12px; left: 12px; right: auto; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; max-width: calc(100% - 24px); padding-bottom: 2px; scrollbar-width: none; }
-  .vc-weergave::-webkit-scrollbar { display: none; }
-  .vc-weergave .vc-pil { flex-shrink: 0; }
+  /* Weergavechips bovenin onder de standpuntbalk, in twee rijen (alle chips incl. Regen,
+     Waterloop en Volg het water zichtbaar zonder scrollen); de uitloopzone onderin blijft vrij. */
+  .vc-weergave { top: 54px; bottom: auto; left: 12px; right: 12px; max-width: none; flex-direction: row; flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+  .vc-weergave .vc-pil { flex-shrink: 0; padding: 5px 9px; font-size: 11px; }
   .vc-afvoer-staanders { grid-template-columns: 1fr 1fr; }
-  .vc-dock { bottom: auto; top: 60px; padding: 8px 10px; }
+  .vc-dock { top: auto; bottom: 12px; padding: 8px 10px; }
   .vc-dock-hint { display: none; }
   .vc-binnen-hint { display: none; }
   .vc-voet { padding: 10px 16px; }

@@ -35,14 +35,15 @@ export function Omgeving({ L, nacht = false, meubels = true, hoog = !MOBIEL, laa
 }
 
 // Maatlabels (breedte, diepte, hoogte) bij de veranda; de vloerlabels staan 5 cm boven de vloer.
+// zIndexRange houdt ze onder de overlay-knoppen (z-index 40); de wrapper vangt geen klikken.
 export function Maatvoering({ L, cfg }) {
-  const stijl = 'vc-maat'
+  const label = { center: true, className: 'vc-maat', zIndexRange: [30, 0], wrapperClass: 'vc-maat-wrap' }
   const y = L.vloerY + 0.05
   return (
     <group>
-      <Html position={[0, y, L.D + 0.55]} center className={stijl}>{cfg.breedte} cm</Html>
-      <Html position={[L.W / 2 + 0.5, y, L.D / 2]} center className={stijl}>{cfg.diepte} cm</Html>
-      <Html position={[L.xStaanders[L.xStaanders.length - 1] + 0.35, L.Hf / 2, L.zVoorStaander + 0.2]} center className={stijl}>{cfg.hoogte} cm</Html>
+      <Html position={[0, y, L.D + 0.55]} {...label}>{cfg.breedte} cm</Html>
+      <Html position={[L.W / 2 + 0.5, y, L.D / 2]} {...label}>{cfg.diepte} cm</Html>
+      <Html position={[L.xStaanders[L.xStaanders.length - 1] + 0.35, L.Hf / 2, L.zVoorStaander + 0.2]} {...label}>{cfg.hoogte} cm</Html>
     </group>
   )
 }
