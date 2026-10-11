@@ -280,13 +280,38 @@ export default function VerandaConfigurator() {
       // In een afgeschermd iframe (inbedding) mag de URL soms niet wijzigen; dan alleen overslaan.
       try {
         const p = new URLSearchParams(window.location.search)
-        p.set('c', naarUrl(cfg))
-        window.history.replaceState(window.history.state, '', `?${p}${window.location.hash}`)
+        // De standaardveranda krijgt een schone link (na "Opnieuw beginnen").
+        if (JSON.stringify(cfg) === JSON.stringify(STANDAARD_CONFIG)) p.delete('c')
+        else p.set('c', naarUrl(cfg))
+        const q = p.toString()
+        window.history.replaceState(window.history.state, '', `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash}`)
       } catch { /* deellink blijft via de knop beschikbaar */ }
     }, 300)
     return () => clearTimeout(t)
   }, [cfg])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  // "Opnieuw beginnen": alles terug naar de standaardveranda en naar stap 1, na een bevestiging.
+  const [herstartVraag, setHerstartVraag] = useState(false)
+  const herstart = () => {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+    setCfg(STANDAARD_CONFIG)
+    setStap(0)
+    setBediening(BEDIENING_START)
+    setNacht(false)
+    setToonMaten(false)
+    setMeubels(true)
+    setZijde('voor')
+    setVak('alle')
+    setRegen(false)
+    setToonWaterloop(true)
+    setAfvoerFocus(false)
+    setAfvoerHint(null)
+    setMelding(null)
+    setHerstartVraag(false)
+    setView({ naam: 'buiten' })
+  }
 
   // Zijde/vak-keuze geldig houden als het model of het aantal vakken verandert.
   useEffect(() => {
@@ -454,7 +479,23 @@ export default function VerandaConfigurator() {
             </button>
           ))}
         </nav>
+        <button type="button" className="vc-herstart" title="Alle keuzes wissen en opnieuw beginnen" onClick={() => setHerstartVraag(true)}>
+          <span aria-hidden>↺</span><span className="vc-herstart-tekst"> Opnieuw beginnen</span>
+        </button>
       </header>
+
+      {herstartVraag && (
+        <div className="vc-herstart-vraag" role="dialog" aria-modal="true" aria-labelledby="vc-herstart-titel">
+          <div className="vc-herstart-kaart">
+            <strong id="vc-herstart-titel">Opnieuw beginnen?</strong>
+            <p>Alle keuzes (model, maten, kleur, dak, wanden, zonwering, extra's en afvoer) gaan terug naar de standaardveranda en je start weer bij stap 1.</p>
+            <div className="vc-herstart-knoppen">
+              <button type="button" className="vc-knop secundair" onClick={() => setHerstartVraag(false)}>Annuleren</button>
+              <button type="button" className="vc-knop" onClick={herstart} autoFocus>Ja, opnieuw beginnen</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="vc-lijf">
         <section className="vc-podium">

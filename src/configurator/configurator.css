@@ -170,9 +170,20 @@
 .vc-succes p { margin-top: 4px; font-size: 13px; }
 
 /* Mobiel: 3D boven, keuzes eronder */
+/* "Opnieuw beginnen": knop in de kop en een bevestigingskaart over het podium. */
+.vc-herstart { flex-shrink: 0; display: flex; align-items: center; gap: 2px; border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.06); color: #e6eef4; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.vc-herstart:hover { background: rgba(255,255,255,0.16); color: #fff; border-color: rgba(255,255,255,0.5); }
+.vc-herstart-vraag { position: fixed; inset: 0; z-index: 60; background: rgba(10,23,38,0.45); display: grid; place-items: center; padding: 16px; }
+.vc-herstart-kaart { background: #fff; color: var(--vc-tekst); border-radius: 14px; padding: 18px 20px; max-width: 380px; box-shadow: 0 18px 50px rgba(10,35,66,0.3); }
+.vc-herstart-kaart strong { font-size: 16px; }
+.vc-herstart-kaart p { margin: 8px 0 14px; font-size: 13px; line-height: 1.5; color: #4a5560; }
+.vc-herstart-knoppen { display: flex; gap: 8px; justify-content: flex-end; }
+
 @media (max-width: 860px) {
   .vc-kop { padding: 8px 12px; gap: 10px; }
   .vc-merk-sub { display: none; }
+  .vc-herstart { padding: 5px 9px; }
+  .vc-herstart-tekst { display: none; }
   .vc-stappen { justify-content: flex-start; }
   .vc-lijf { flex-direction: column; }
   .vc-podium { flex: none; height: 52vh; }
