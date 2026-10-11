@@ -38,7 +38,7 @@ const KLEUR_NACHT = new THREE.Color('#5b6773')
 const KLEUR_REGEN = { value: KLEUR_DAG.clone() }
 
 // Instanced quad (4 hoekpunten, 2 driehoeken); de instantiedata komt per onderdeel.
-function instancedQuad(n) {
+function instantieQuad(n) {
   const basis = new THREE.PlaneGeometry(1, 1)
   const g = new THREE.InstancedBufferGeometry()
   g.setIndex(basis.index)
@@ -116,7 +116,7 @@ const REGENVAL_MAX = MOBIEL ? REGENVAL_LAAG : REGENVAL_HOOG
 function Regenval({ L, nacht, hoog }) {
   const geom = useMemo(() => {
     const { n, straal, hoogte } = REGENVAL_MAX
-    const g = instancedQuad(n)
+    const g = instantieQuad(n)
     const r = rng(101)
     const offset = new Float32Array(n * 3)
     const eig = new Float32Array(n * 2)
@@ -341,7 +341,7 @@ function Waterloop({ a, hoog }) {
 const SPETTERS_MAX = MOBIEL ? 60 : 160
 function Spetters({ a, hoog }) {
   const geom = useMemo(() => {
-    const g = instancedQuad(SPETTERS_MAX)
+    const g = instantieQuad(SPETTERS_MAX)
     const r = rng(131)
     const seed = new Float32Array(SPETTERS_MAX * 4)
     for (let i = 0; i < SPETTERS_MAX; i++) {
@@ -369,7 +369,7 @@ function Spetters({ a, hoog }) {
 // Vlakke ringen/spatjes op de grond: gedeelde geometrie-opbouw voor Ringen en Spatjes.
 function ringGeometrie(posities) {
   const n = posities.length
-  const g = instancedQuad(n)
+  const g = instantieQuad(n)
   const pos = new Float32Array(n * 3)
   const fase = new Float32Array(n)
   posities.forEach(([x, y, z, f], i) => { pos.set([x, y, z], i * 3); fase[i] = f })
@@ -441,7 +441,7 @@ function Plas({ a }) {
 const DRUPPELS_N = 140
 function Druppels({ L, cfg, hoog }) {
   const geom = useMemo(() => {
-    const g = instancedQuad(DRUPPELS_N)
+    const g = instantieQuad(DRUPPELS_N)
     const r = rng(151)
     const x = new Float32Array(DRUPPELS_N)
     const fase = new Float32Array(DRUPPELS_N)
@@ -450,17 +450,19 @@ function Druppels({ L, cfg, hoog }) {
     g.setAttribute('aFase', new THREE.InstancedBufferAttribute(fase, 1))
     return g
   }, [L.W])
-  const randen = useMemo(() => {
-    const voorScreen = !!cfg?.zonwering?.screens?.voor && !L.overstek
-    const zVoor = voorScreen ? L.zVoorStaander + L.sD / 2 + 0.10 : L.kubus ? L.D : L.D + 0.012
-    const lijst = [{ y0: L.Hf, z: zVoor }]
-    if (L.vrijstaand) lijst.push({ y0: L.kubus ? L.Hf : L.achterBalkOnder, z: L.kubus ? 0 : -0.012 })
-    return lijst
-  }, [L, cfg?.zonwering?.screens?.voor])
-  const mats = useMemo(() => randen.map(r => deeltjesMateriaal(DRUPPEL_VERT, REGENVAL_FRAG, {
-    uTijd: REGEN.uTijd, uRegen: REGEN.uRegen, uKleur: KLEUR_REGEN,
-    uY0: { value: r.y0 }, uZ: { value: r.z }, uBodem: { value: L.vloerY },
-  })), [randen, L.vloerY])
+  // Randen waar het druppelt: voorrand (bij een voorscreen vóór het screen) en vrijstaand ook de
+  // achterrand. Alleen nieuwe materialen als een maat echt verandert (niet bij elke cfg-wissel).
+  const voorScreen = !!cfg?.zonwering?.screens?.voor && !L.overstek
+  const zVoor = voorScreen ? L.zVoorStaander + L.sD / 2 + 0.10 : L.kubus ? L.D : L.D + 0.012
+  const yAchter = L.kubus ? L.Hf : L.achterBalkOnder
+  const mats = useMemo(() => {
+    const randen = [{ y0: L.Hf, z: zVoor }]
+    if (L.vrijstaand) randen.push({ y0: yAchter, z: L.kubus ? 0 : -0.012 })
+    return randen.map(r => deeltjesMateriaal(DRUPPEL_VERT, REGENVAL_FRAG, {
+      uTijd: REGEN.uTijd, uRegen: REGEN.uRegen, uKleur: KLEUR_REGEN,
+      uY0: { value: r.y0 }, uZ: { value: r.z }, uBodem: { value: L.vloerY },
+    }))
+  }, [L.Hf, zVoor, L.vrijstaand, yAchter, L.kubus, L.vloerY])
   useEffect(() => () => geom.dispose(), [geom])
   useEffect(() => () => mats.forEach(m => m.dispose()), [mats])
   return (
