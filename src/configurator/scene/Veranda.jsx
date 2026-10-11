@@ -223,7 +223,10 @@ function Muurprofiel({ L, yBoven, h }) {
 function Spie({ L, kant, type }) {
   const mat = useMat()
   const geom = useMemo(() => {
-    const z0 = L.zij.z0, z1 = L.zij.z1
+    // Niet in een open gootkanaal steken: 4 mm vóór de dakzijdige gootwand afkappen
+    // (voorgoot altijd, achtergoot bij vrijstaand).
+    const z0 = L.vrijstaand ? Math.max(L.zij.z0, L.gootB + 0.004) : L.zij.z0
+    const z1 = Math.min(L.zij.z1, L.D - L.gootB - 0.004)
     const onder = L.Hf + 0.005
     const s = new THREE.Shape()
     s.moveTo(z0, onder)
@@ -361,9 +364,24 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
   const mat = useMat()
   const { W, Hf } = L
   const afvoeren = L.afvoeren || []
-  const lengteLigger = L.lengteDak / Math.cos(L.helling)
+  // Liggers en platen lopen van zAchter tot de goothartlijn (zGoot). Bij de goot-modellen is
+  // de goot een open kanaal: daar eindigen ze 2 cm voorbij de dakzijdige gootwand (druiprand),
+  // zodat gootbodem en gootgat vrij blijven — vóór altijd, achter alleen vrijstaand (achtergoot).
+  // In een omkasting (Cubic) lopen ze door tot in de balk.
+  const cosH = Math.cos(L.helling)
+  const lengteVol = L.lengteDak / cosH
+  const inGoot = (L.gootB / 2 - 0.02) / cosH        // van goothart tot 2 cm voorbij de gootwand
+  const inkortVoor = L.kubus ? 0 : inGoot
+  const inkortAchter = !L.kubus && L.vrijstaand ? inGoot : 0
+  // Lokale z langs de helling: 0 = zMid (hart van zAchter..zGoot), +z = richting voorgoot.
+  const zAchterL = -lengteVol / 2 + inkortAchter
+  const zVoorL = lengteVol / 2 - inkortVoor
+  const lengteLigger = zVoorL - zAchterL
+  const zLigger = (zAchterL + zVoorL) / 2
   // Afdekprofiel stopt bij de binnenkant van de goot/voorbalk.
-  const lengteAfdek = lengteLigger - L.gootB / 2 / Math.cos(L.helling)
+  const zVoorAfdek = lengteVol / 2 - L.gootB / 2 / cosH
+  const lengteAfdek = zVoorAfdek - zAchterL
+  const zAfdek = (zAchterL + zVoorAfdek) / 2
   const zMid = (L.zAchter + L.zGoot) / 2
   const dikte = L.soort === 'poly' ? 0.016 : 0.009
 
@@ -452,19 +470,21 @@ export default function Veranda({ cfg, L, nacht, heaterAan, doorkijk = false, on
       {L.liggers.map((l, i) => (
         // Draaipunt op de bovenkant van de ligger in het midden, zodat de helling klopt.
         <group key={`l${i}`} position={[l.x, L.dakY(zMid), zMid]} rotation={[L.helling, 0, 0]}>
-          <Balk as="z" b={L.lB} h={L.lH} lengte={lengteLigger} r={0.004} position={[0, -L.lH / 2, 0]} mat={mat.frame} />
-          <Box args={[L.lB + 0.006, 0.003, lengteLigger]} position={[0, 0.0015, 0]} mat={mat.rubber} schaduw={false} />
+          <Balk as="z" b={L.lB} h={L.lH} lengte={lengteLigger} r={0.004} position={[0, -L.lH / 2, zLigger]} mat={mat.frame} />
+          <Box args={[L.lB + 0.006, 0.003, lengteLigger]} position={[0, 0.0015, zLigger]} mat={mat.rubber} schaduw={false} />
           <Balk as="z" b={L.lB + 0.02} h={0.014} r={0.005} lengte={lengteAfdek}
-            position={[0, 0.011, -(lengteLigger - lengteAfdek) / 2]} mat={mat.frame} schaduw={false} />
+            position={[0, 0.011, zAfdek]} mat={mat.frame} schaduw={false} />
         </group>
       ))}
 
       {/* Dakplaten */}
       {L.platen.map((p, i) => (
-        <mesh key={`p${i}`} material={mat.dak} position={[p.x, L.dakY(zMid) - dikte / 2 + 0.004, zMid]}
-          rotation={[L.helling, 0, 0]} renderOrder={2} receiveShadow {...dakSchaduw}>
-          <boxGeometry args={[p.b, dikte, lengteLigger]} />
-        </mesh>
+        // Bovenkant van de plaat 4 mm boven de liggerbovenkant (dakY); Regen.jsx rekent daarmee.
+        <group key={`p${i}`} position={[p.x, L.dakY(zMid), zMid]} rotation={[L.helling, 0, 0]}>
+          <mesh material={mat.dak} position={[0, -dikte / 2 + 0.004, zLigger]} renderOrder={2} receiveShadow {...dakSchaduw}>
+            <boxGeometry args={[p.b, dikte, lengteLigger]} />
+          </mesh>
+        </group>
       ))}
       {/* Afsluitprofiel aan de gootzijde van de dakplaten */}
       {!L.kubus && (
