@@ -1,15 +1,18 @@
 // Procedurele canvas-texturen (kleur + normal map), zodat de configurator geen
 // externe bestanden nodig heeft en toch diepte/structuur in het licht toont.
+// De helpers (maakCanvas, naarTexture, canvasTex, normaalUitHoogte, rng) zijn
+// geëxporteerd zodat Regen/Tuin/Meubels hun eigen maskers en normals kunnen tekenen.
 import * as THREE from 'three'
+import { MOBIEL } from './kwaliteit.js'
 
-function maakCanvas(w, h) {
+export function maakCanvas(w, h) {
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
   return c
 }
 
-function naarTexture(canvas, { srgb = true } = {}) {
+export function naarTexture(canvas, { srgb = true } = {}) {
   const t = new THREE.CanvasTexture(canvas)
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   t.anisotropy = 8
@@ -17,20 +20,20 @@ function naarTexture(canvas, { srgb = true } = {}) {
   return t
 }
 
-function canvasTex(w, h, teken, opties) {
+export function canvasTex(w, h, teken, opties) {
   const c = maakCanvas(w, h)
   teken(c.getContext('2d'), w, h)
   return naarTexture(c, opties)
 }
 
 // Eenvoudige deterministische ruis zodat elke render er hetzelfde uitziet.
-function rng(seed) {
+export function rng(seed) {
   let s = seed
   return () => (s = (s * 16807) % 2147483647) / 2147483647
 }
 
 // Zet een hoogtekaart (grijswaarden, licht = hoog) om naar een tangent-space normal map.
-function normaalUitHoogte(hoogte, sterkte = 2) {
+export function normaalUitHoogte(hoogte, sterkte = 2) {
   const w = hoogte.width, h = hoogte.height
   const bron = hoogte.getContext('2d').getImageData(0, 0, w, h).data
   const uit = maakCanvas(w, h)
@@ -61,12 +64,12 @@ function pbrSet(w, h, teken, sterkte) {
   return { map: naarTexture(kleur), normalMap: normaalUitHoogte(hoogte, sterkte) }
 }
 
-// Waalformaat baksteen (21 × 5 cm) in halfsteensverband met verdiepte voegen.
+// Waalformaat baksteen (21 × 5 cm) in halfsteensverband met verdiepte, lichte voegen.
 // Eén tegel van de texture = 4 stenen breed × 16 lagen hoog ≈ 0,88 × 0,9 m.
 export function baksteen() {
   return pbrSet(512, 512, (g, hg, w, h) => {
     const r = rng(7)
-    g.fillStyle = '#a49c90'
+    g.fillStyle = '#c9c2b6'
     g.fillRect(0, 0, w, h)
     hg.fillStyle = '#202020'
     hg.fillRect(0, 0, w, h)
@@ -143,7 +146,56 @@ export function gras() {
   }, 2.5)
 }
 
-// Fijne structuurlak van gepoedercoat aluminium (alleen normal map).
+// Kinderkopjes (kasseien): 6 × 6 keien per tegel, grijs met warme tint, donkere voeg en
+// een bolle hoogte per kei. Eén herhaling ≈ 6 keien van 10 cm = 0,6 m.
+export function kinderkopjes() {
+  const n = MOBIEL ? 256 : 512
+  const schaal = n / 512
+  return pbrSet(n, n, (g, hg, w, h) => {
+    const r = rng(29)
+    g.fillStyle = '#3a3632'
+    g.fillRect(0, 0, w, h)
+    hg.fillStyle = '#101010'
+    hg.fillRect(0, 0, w, h)
+    const keien = 6, cel = w / keien, voeg = 10 * schaal
+    for (let y = 0; y < keien; y++) {
+      for (let x = 0; x < keien; x++) {
+        // Kleine willekeur in maat en plek zodat het verband niet machinaal oogt.
+        const kx = x * cel + voeg / 2 + (r() - 0.5) * 3 * schaal
+        const ky = y * cel + voeg / 2 + (r() - 0.5) * 3 * schaal
+        const kb = cel - voeg - r() * 4 * schaal
+        const kh = cel - voeg - r() * 4 * schaal
+        const grijs = 95 + r() * 55, tint = (r() - 0.5) * 16
+        const rond = Math.min(kb, kh) * 0.22
+        const pad = ctx => {
+          ctx.beginPath()
+          ctx.roundRect(kx, ky, kb, kh, rond)
+          ctx.closePath()
+        }
+        g.fillStyle = `rgb(${(grijs + tint) | 0},${grijs | 0},${(grijs - tint) | 0})`
+        pad(g)
+        g.fill()
+        // Slijtglans en vuil op de kei.
+        for (let k = 0; k < 10; k++) {
+          g.fillStyle = `rgba(${r() > 0.5 ? '255,250,240' : '30,28,26'},${0.05 + r() * 0.08})`
+          g.fillRect(kx + r() * kb, ky + r() * kh, 2 + r() * 5 * schaal, 1 + r() * 3 * schaal)
+        }
+        // Hoogte: bolle kei (midden hoog, rand lager) via een radiale gradient.
+        const cx = kx + kb / 2, cy = ky + kh / 2
+        const grad = hg.createRadialGradient(cx, cy, 0, cx, cy, Math.max(kb, kh) * 0.62)
+        grad.addColorStop(0, '#f0f0f0')
+        grad.addColorStop(0.75, '#b0b0b0')
+        grad.addColorStop(1, '#505050')
+        hg.fillStyle = grad
+        pad(hg)
+        hg.fill()
+      }
+    }
+  }, 3.5)
+}
+
+// Fijne structuurlak van gepoedercoat aluminium (alleen normal map). Niet meer op het
+// frame gebruikt (de satijnglans komt uit clearcoat), beschikbaar voor andere delen.
 export function poedercoat() {
   const c = maakCanvas(256, 256)
   const g = c.getContext('2d')
@@ -158,14 +210,24 @@ export function poedercoat() {
   return normaalUitHoogte(c, 1.2)
 }
 
-// Kanaalstructuur van meerwandig polycarbonaat (lichtere/donkere strepen).
+// Kanaalstructuur van 16 mm meerwandig polycarbonaat: 32 kanalen per herhaling (om de
+// 16 px een fijne lijn) plus per kanaal een zachte gradient, zodat de kanalen door de
+// melkwitte plaat heen schemeren in plaats van als harde strepen. Met repeat
+// PLAAT_BREEDTE / 0.512 wordt één kanaal 16 mm breed.
 export function polyKanalen() {
-  return canvasTex(256, 16, (g, w, h) => {
+  return canvasTex(512, 16, (g, w, h) => {
     g.fillStyle = '#ffffff'
     g.fillRect(0, 0, w, h)
-    for (let x = 0; x < w; x += 8) {
-      g.fillStyle = 'rgba(160,170,180,0.55)'
-      g.fillRect(x, 0, 1.5, h)
+    for (let x = 0; x < w; x += 16) {
+      // Lichte welving per kanaal: iets lichter naast de kanaalwand, neutraal in het midden.
+      const grad = g.createLinearGradient(x, 0, x + 16, 0)
+      grad.addColorStop(0, 'rgba(255,255,255,0.06)')
+      grad.addColorStop(0.5, 'rgba(255,255,255,0)')
+      grad.addColorStop(1, 'rgba(255,255,255,0.06)')
+      g.fillStyle = grad
+      g.fillRect(x, 0, 16, h)
+      g.fillStyle = 'rgba(120,130,140,0.28)'
+      g.fillRect(x, 0, 1, h)
     }
   })
 }
@@ -181,6 +243,61 @@ export function doekWeefsel() {
       g.fillRect(0, i, w, 1)
     }
   }, { srgb: false })
+}
+
+// Rotan-vlechtwerk als alphaMap (hangstoel): twee families diagonale lijnen (±45°),
+// periode 16 px langs de assen zodat de tegel naadloos herhaalt, lijnbreedte 6 px,
+// wit op zwart. Gebruik met alphaTest ≈ 0.5 en DoubleSide.
+export function rotan() {
+  return canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#000000'
+    g.fillRect(0, 0, w, h)
+    g.strokeStyle = '#ffffff'
+    g.lineWidth = 6
+    g.lineCap = 'butt'
+    const periode = 16
+    for (let i = -w; i <= 2 * w; i += periode) {
+      // Familie 1: van linksboven naar rechtsonder; familie 2: gespiegeld.
+      g.beginPath(); g.moveTo(i, -2); g.lineTo(i + h + 4, h + 2); g.stroke()
+      g.beginPath(); g.moveTo(i, h + 2); g.lineTo(i + h + 4, -2); g.stroke()
+    }
+  }, { srgb: false })
+}
+
+// Bayer-matrix 8 × 8 (geordende dither): waarde k/64 per cel, elke waarde precies één keer.
+export function bayer8() {
+  let m = [[0]]
+  for (let n = 1; n < 8; n *= 2) {
+    const uit = []
+    for (let y = 0; y < 2 * n; y++) {
+      uit.push([])
+      for (let x = 0; x < 2 * n; x++) {
+        const basis = 4 * m[y % n][x % n]
+        uit[y].push(basis + (y < n ? (x < n ? 0 : 2) : (x < n ? 3 : 1)))
+      }
+    }
+    m = uit
+  }
+  return m
+}
+
+// Dither-masker voor gedeeltelijke schaduw (8 × 8, NearestFilter, zonder mipmaps):
+// een fractie `dekking` van de cellen is wit. Gebruikt als alphaMap met alphaTest 0.5
+// op een MeshDepthMaterial, zodat half-doorzichtige dakplaten een lichte schaduw werpen.
+export function dither(dekking) {
+  const m = bayer8()
+  const t = canvasTex(8, 8, (g, w, h) => {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        g.fillStyle = m[y][x] / 64 < dekking ? '#ffffff' : '#000000'
+        g.fillRect(x, y, 1, 1)
+      }
+    }
+  }, { srgb: false })
+  t.magFilter = t.minFilter = THREE.NearestFilter
+  t.generateMipmaps = false
+  t.anisotropy = 1
+  return t
 }
 
 // Houtnerf voor tafelblad / vlonder.

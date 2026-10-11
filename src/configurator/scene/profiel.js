@@ -26,7 +26,7 @@ function afgerondeRechthoek(b, h, r) {
 export function profielGeom(b, h, r = 0.004) {
   const k = `${b.toFixed(4)}|${h.toFixed(4)}|${r}`
   if (!cache.has(k)) {
-    const g = new THREE.ExtrudeGeometry(afgerondeRechthoek(b, h, r), { depth: 1, bevelEnabled: false, curveSegments: 3 })
+    const g = new THREE.ExtrudeGeometry(afgerondeRechthoek(b, h, r), { depth: 1, bevelEnabled: false, curveSegments: 4 })
     g.translate(0, 0, -0.5)
     const glad = toCreasedNormals(g, Math.PI / 4)
     g.dispose()

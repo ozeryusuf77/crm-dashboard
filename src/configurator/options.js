@@ -12,7 +12,7 @@ export const STAPPEN = [
   { id: 'model',     label: 'Model' },
   { id: 'maten',     label: 'Afmetingen' },
   { id: 'kleur',     label: 'Kleur' },
-  { id: 'dak',       label: 'Dakbedekking' },
+  { id: 'dak',       label: 'Dak & afvoer' },
   { id: 'wanden',    label: 'Wanden' },
   { id: 'zonwering', label: 'Zonwering' },
   { id: 'extra',     label: 'Verlichting & extra' },
@@ -24,6 +24,9 @@ export const STAPPEN = [
 // gangbare specificaties van NL aluminium veranda's (o.a. 600 cm uit één stuk
 // bij een goot-veranda, 700 cm bij een kubistisch model, koppelstukken vanaf
 // 800 cm bij het overstekmodel). Breder dan `maxDeel` = levering in delen.
+// `afvoer` = hemelwaterafvoer door de voorste hoekstaander: `buis` = PVC-buis in
+// de staander (m), `gootBodem` = hoogte van de (ingebouwde) gootbodem boven de
+// doorloophoogte (m), `m2` = dakoppervlak dat één afvoer aankan (NEN 3215).
 export const MODELLEN = [
   {
     id: 'klassiek', label: 'Classic', sub: 'Halfronde goot · hellend dak',
@@ -32,7 +35,7 @@ export const MODELLEN = [
     gootB: 0.2, gootH: 0.2, staander: [0.136, 0.13], ligger: [0.055, 0.122],
     maxDeel: 600, overspanning: { poly: 600, glas: 500 },
     breedte: [300, 1200], diepte: { poly: [250, 700], glas: [250, 400] }, hoogte: [210, 280, 230],
-    afvoer: 'zichtbaar', prijsFactor: 1,
+    afvoer: { buis: 0.05, gootBodem: 0, m2: 35 }, prijsFactor: 1,
   },
   {
     id: 'linea', label: 'Linea', sub: 'Rechte goot · hellend dak',
@@ -41,7 +44,7 @@ export const MODELLEN = [
     gootB: 0.2, gootH: 0.2, staander: [0.136, 0.13], ligger: [0.055, 0.122],
     maxDeel: 600, overspanning: { poly: 600, glas: 500 },
     breedte: [300, 1200], diepte: { poly: [250, 700], glas: [250, 400] }, hoogte: [210, 280, 230],
-    afvoer: 'zichtbaar', prijsFactor: 1.04,
+    afvoer: { buis: 0.05, gootBodem: 0, m2: 35 }, prijsFactor: 1.04,
   },
   {
     id: 'kubus', label: 'Cubic', sub: 'Plat ogend dak · robuuste staanders',
@@ -50,7 +53,7 @@ export const MODELLEN = [
     gootB: 0.203, gootH: 0.3, staander: [0.2, 0.2], ligger: [0.055, 0.122],
     maxDeel: 700, overspanning: { poly: 700, glas: 600 },
     breedte: [300, 1400], diepte: { poly: [250, 700], glas: [250, 450] }, hoogte: [220, 300, 250],
-    afvoer: 'staander', prijsFactor: 1.35,
+    afvoer: { buis: 0.06, gootBodem: 0.08, m2: 55 }, prijsFactor: 1.35,
   },
   {
     id: 'kubus-xl', label: 'Cubic XL', sub: 'Plat dak · 1 m overstek',
@@ -59,7 +62,7 @@ export const MODELLEN = [
     gootB: 0.203, gootH: 0.3, staander: [0.155, 0.19], ligger: [0.055, 0.122],
     maxDeel: 790, overspanning: { poly: 700, glas: 600 },
     breedte: [300, 1400], diepte: { poly: [300, 700], glas: [300, 450] }, hoogte: [220, 300, 250],
-    afvoer: 'staander', prijsFactor: 1.55,
+    afvoer: { buis: 0.06, gootBodem: 0.08, m2: 55 }, prijsFactor: 1.55,
   },
 ]
 
@@ -86,8 +89,8 @@ export const PLAAT_BREEDTE = 0.98
 export const SCHUIFWAND = { paneelMax: 1.03, overlap: 0.02, minSporen: 2, maxSporen: 7 }
 
 export const KLEUREN = [
-  { id: 'ral7016', label: 'Antraciet', ral: 'RAL 7016', hex: '#383e42' },
-  { id: 'ral9005', label: 'Zwart',     ral: 'RAL 9005', hex: '#161718' },
+  { id: 'ral7016', label: 'Antraciet', ral: 'RAL 7016', hex: '#34393c' },
+  { id: 'ral9005', label: 'Zwart',     ral: 'RAL 9005', hex: '#131415' },
   { id: 'ral9001', label: 'Crème wit', ral: 'RAL 9001', hex: '#e6dccb' },
   { id: 'ral9016', label: 'Verkeerswit', ral: 'RAL 9016', hex: '#f1f0ea' },
   { id: 'ral9007', label: 'Grijs aluminium', ral: 'RAL 9007', hex: '#8a8985', prijsFactor: 1.03 },
@@ -157,7 +160,47 @@ export const EXTRA_PRIJZEN = {
   montageM2: 18,     // per m² overkapping
   koppelset: 295,    // per koppeling (koppelstuk goot + muurprofiel, koppelstaander)
   staander: 165,     // per extra staander boven 2 per staanderlijn
+  afvoerExtra: 95,   // tweede hemelwaterafvoer (in de andere hoekstaander); de eerste is inbegrepen
+  uitloopKapje: 35,  // aluminium uitloopkapje in framekleur, per afvoer
+  bladvanger: 15,    // rvs bladzeef in de gootuitloop, per afvoer
+  afvoerOndergronds: 145,         // ondergrondse aansluiting op regenpijp/riool, per afvoer (incl. graafwerk bij montage)
+  afvoerOndergrondsMateriaal: 45, // idem, alleen materiaal (zonder montage)
 }
+
+// ─── Hemelwaterafvoer door de voorste hoekstaander (maten in m) ──────────────
+// Het water loopt van het dak in de goot, via een gootuitloop (tapeind) in de
+// holle hoekstaander en onderaan door een uitloopgat naar buiten. Alleen de twee
+// buitenste voorstaanders komen in aanmerking (nooit koppel- of achterstaanders).
+export const AFVOER = {
+  tapeind: 0.06,    // gootuitloop Ø 60 mm, verloopt in de staander naar de buismaat
+  uitloopH: 0.15,   // hart van het uitloopgat boven de vloer
+  stub: 0.05,       // recht stuk buiten het staandervlak vóór de bocht
+  been: 0.03,       // neerwaarts eindstuk van de bocht
+  kapje: [0.08, 0.06, 0.06],  // aluminium uitloopkapje: breed × hoog × uitsteek
+  grondbuis: 0.4,   // 'onder': diepte onder maaiveld waarop de buis richting regenpijp/riool afbuigt
+  bladvanger: 0.045 // straal van de bladzeef-koepel
+}
+
+// Uitlooprichting onderaan de staander, gezien vanuit de tuin; n = normaal van
+// het staandervlak [x, z] waarin het gat komt. 'onder' = door de voetplaat omlaag.
+export const AFVOER_RICHTINGEN = [
+  { id: 'links',  label: 'Naar links',    n: [-1, 0] },
+  { id: 'rechts', label: 'Naar rechts',   n: [1, 0] },
+  { id: 'voor',   label: 'Naar voren',    sub: 'Richting tuin',      n: [0, 1] },
+  { id: 'achter', label: 'Naar achteren', sub: 'Onder de veranda',   n: [0, -1] },
+  { id: 'onder',  label: 'Ondergronds',   sub: 'Aansluiting op regenpijp of riool', n: [0, 0] },
+]
+
+export const AFVOER_UITLOPEN = [
+  { id: 'bocht', label: 'PVC-bocht in framekleur', sub: 'Standaard' },
+  { id: 'kapje', label: 'Aluminium uitloopkapje',  sub: 'Strak, in framekleur' },
+]
+
+// Terrasvloer onder de veranda (alleen weergave, niet geprijsd, wél in de deellink).
+export const VLOEREN = [
+  { id: 'vlonder', label: 'Vlonder', sub: 'Hardhouten planken' },
+  { id: 'tegels',  label: 'Tegels',  sub: 'Lichte keramische tegels' },
+]
 
 export const ZIJDES = [
   { id: 'voor',   label: 'Voorzijde' },
@@ -189,6 +232,10 @@ export const STANDAARD_CONFIG = {
     doek: 'antraciet',
   },
   extra: { spots: 0, dimmer: false, ledStrip: false, heater: 0, montage: true },
+  // Hemelwaterafvoer per voorste hoekstaander (gezien vanuit de tuin): uitlooprichting
+  // uit AFVOER_RICHTINGEN of null = geen afvoer in die staander. Minstens één actief.
+  afvoer: { links: null, rechts: 'rechts', uitloop: 'bocht', bladvanger: false },
+  vloer: 'vlonder',
 }
 
 export const vind = (lijst, id) => lijst.find(o => o.id === id) || lijst[0]

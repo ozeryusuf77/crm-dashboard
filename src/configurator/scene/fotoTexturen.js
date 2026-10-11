@@ -1,10 +1,11 @@
 // Echte foto-PBR-texturen (CC0, zie assets/BRONNEN.md) uit src/configurator/assets/texturen/<oppervlak>/.
 // Vite bundelt de bestanden mee (geen CDN); ze laden als <img>, dus ook onder een
 // strenge CSP. Zolang ze laden of als een set ontbreekt, valt de scène terug op de
-// procedurele canvas-texturen.
+// procedurele canvas-texturen. Oppervlakken: baksteen, terras, gras, hout, dakpannen, vlonder.
 import * as THREE from 'three'
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
 import { MOBIEL } from './kwaliteit.js'
+import { natShader, natKeyFn } from './regenNat.js'
 
 const BESTANDEN = import.meta.glob('../assets/texturen/*/*.jpg', { eager: true, query: '?url', import: 'default' })
 
@@ -33,8 +34,9 @@ export function laadAfbeelding(url, srgb) {
 
 // Geeft { map, normalMap, roughnessMap, aoMap } of null zolang de set niet geladen is.
 // herhaling = [x, y] aantal herhalingen over het oppervlak; verschuiving = [x, y] in herhalingen
-// (om bijvoorbeeld de lagen van een topgevel op de muur eronder te laten aansluiten).
-export function useFotoTexturen(oppervlak, herhaling, verschuiving = [0, 0]) {
+// (om bijvoorbeeld de lagen van een topgevel op de muur eronder te laten aansluiten);
+// rotatie = draaiing van de uv in radialen om het midden (planken evenwijdig aan de gevel).
+export function useFotoTexturen(oppervlak, herhaling, verschuiving = [0, 0], rotatie = 0) {
   const [set, setSet] = useState(null)
   const [hx, hy] = herhaling
   const [vx, vy] = verschuiving
@@ -62,11 +64,30 @@ export function useFotoTexturen(oppervlak, herhaling, verschuiving = [0, 0]) {
 
   useEffect(() => {
     if (!set) return
-    // Herhaling gaat via de uv-transformatie; geen nieuwe upload nodig.
-    new Set(Object.values(set)).forEach(t => { t.repeat.set(hx, hy); t.offset.set(vx, vy) })
-  }, [set, hx, hy, vx, vy])
+    // Herhaling, verschuiving en rotatie gaan via de uv-transformatie; geen nieuwe upload nodig.
+    new Set(Object.values(set)).forEach(t => {
+      t.repeat.set(hx, hy)
+      t.offset.set(vx, vy)
+      t.center.set(0.5, 0.5)
+      t.rotation = rotatie
+    })
+  }, [set, hx, hy, vx, vy, rotatie])
 
   useEffect(() => () => { if (set) new Set(Object.values(set)).forEach(t => t.dispose()) }, [set])
 
   return set
+}
+
+// Materiaal met echte foto-textuur zodra die geladen is, anders de procedurele terugval.
+// De key forceert een nieuw materiaal (en shader) als de set binnenkomt of als `nat`
+// wisselt: onBeforeCompile na de eerste compilatie heeft anders geen effect.
+// nat: undefined (droog blijft droog) | 'droog' (donkerder + glanzend bij regen) |
+// 'plassen' (idem, plus plasvlekken; alleen op vlakke grond, niet op mobiel).
+export function FotoMateriaal({ foto, terugval, ao = 0.8, roughness = 1, envMapIntensity = 1, nat, ...props }) {
+  const natProps = nat === 'droog' || nat === 'plassen'
+    ? { onBeforeCompile: natShader(nat === 'plassen'), customProgramCacheKey: natKeyFn(nat === 'plassen') }
+    : {}
+  return foto
+    ? createElement('meshStandardMaterial', { key: `foto-${nat ?? ''}`, ...props, ...foto, roughness, envMapIntensity, aoMapIntensity: ao, ...natProps })
+    : createElement('meshStandardMaterial', { key: `terugval-${nat ?? ''}`, ...props, ...terugval, ...natProps })
 }

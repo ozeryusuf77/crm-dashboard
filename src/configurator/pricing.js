@@ -1,10 +1,27 @@
 import {
   MODELLEN, BEVESTIGINGEN, KLEUREN, DAKKEN, WAND_TYPES, GLAS_SOORTEN, SPIE_TYPES,
-  DOEK_KLEUREN, ZONWERING, EXTRA_PRIJZEN, OPEN_RICHTINGEN, vind,
+  DOEK_KLEUREN, ZONWERING, EXTRA_PRIJZEN, OPEN_RICHTINGEN, AFVOER_RICHTINGEN, AFVOER, vind,
 } from './options.js'
-import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, screensPerVak } from './layout.js'
+import { maakLayout, wandSlots, wandVoor, aantalSchuifPanelen, aantalPuiVleugels, screensPerVak, AFVOER_KANT_TEKST } from './layout.js'
 
 const ZIJDE_LABEL = { voor: 'Voorzijde', links: 'Linkerzijde', rechts: 'Rechterzijde', achter: 'Achterzijde' }
+
+// Omschrijving van de hemelwaterafvoer: in welke hoekstaander(s), welke uitloop, welke buis.
+// Bv. "rechter hoekstaander · uitloop naar rechts · PVC Ø 50 mm, 15 cm boven de vloer".
+export function afvoerTekst(L) {
+  const A = L.afvoeren
+  const richting = a => vind(AFVOER_RICHTINGEN, a.richting).label.toLowerCase()
+  const staanders = A.length === 1
+    ? `${AFVOER_KANT_TEKST[A[0].kant]} hoekstaander`
+    : `${A.map(a => AFVOER_KANT_TEKST[a.kant]).join(' én ')} hoekstaander`
+  const uitloop = A.length === 1
+    ? `uitloop ${richting(A[0])}`
+    : `uitloop ${A.map(a => `${a.kant} ${richting(a)}`).join(', ')}`
+  const hoogte = A.every(a => a.richting === 'onder')
+    ? 'ondergronds aangesloten'
+    : `${Math.round(AFVOER.uitloopH * 100)} cm boven de vloer`
+  return `${staanders} · ${uitloop} · PVC Ø ${Math.round(L.M.afvoer.buis * 1000)} mm, ${hoogte}`
+}
 
 // Hoe de delen verbonden worden, afhankelijk van de plaatsing.
 export function koppelTekst(L) {
@@ -49,6 +66,27 @@ export function berekenOfferte(cfg) {
     detail: `${nStaanders} staanders (${Math.round(model.staander[0] * 1000)} × ${Math.round(model.staander[1] * 1000)} mm), max ${Math.round(L.overspanning * 100)} cm overspanning`,
     prijs: Math.max(0, extraStaanders) * EXTRA_PRIJZEN.staander,
   })
+
+  // Hemelwaterafvoer door de hoekstaander(s): de eerste is inbegrepen, de tweede kost extra.
+  const afvoeren = L.afvoeren
+  if (afvoeren.length) {
+    regels.push({
+      label: 'Hemelwaterafvoer door de staander',
+      detail: afvoerTekst(L),
+      prijs: Math.max(0, afvoeren.length - 1) * EXTRA_PRIJZEN.afvoerExtra,
+    })
+    const kapjes = afvoeren.filter(a => a.uitloop === 'kapje' && a.richting !== 'onder').length
+    if (kapjes) regels.push({ label: 'Aluminium uitloopkapje', detail: `${kapjes}× in framekleur`, prijs: kapjes * EXTRA_PRIJZEN.uitloopKapje })
+    const bladvangers = afvoeren.filter(a => a.bladvanger).length
+    if (bladvangers) regels.push({ label: 'Bladvanger in gootuitloop', detail: `${bladvangers}× rvs bladzeef`, prijs: bladvangers * EXTRA_PRIJZEN.bladvanger })
+    const ondergronds = afvoeren.filter(a => a.richting === 'onder').length
+    if (ondergronds) {
+      const buis = `${ondergronds}× PVC Ø ${Math.round(L.M.afvoer.buis * 1000)} mm tot 3 m naar regenpijp/riool`
+      regels.push(cfg.extra.montage
+        ? { label: 'Ondergrondse aansluiting afvoer', detail: `${buis}, incl. graafwerk`, prijs: ondergronds * EXTRA_PRIJZEN.afvoerOndergronds }
+        : { label: 'Ondergrondse aansluiting afvoer', detail: `${buis} (materiaal, zelf aan te sluiten)`, prijs: ondergronds * EXTRA_PRIJZEN.afvoerOndergrondsMateriaal })
+    }
+  }
 
   // Wanden: groepeer per zijde.
   const slots = wandSlots(L)
