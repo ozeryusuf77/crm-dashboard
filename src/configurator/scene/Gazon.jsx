@@ -29,7 +29,7 @@ const MACRO_GLSL = /* glsl */`
   diffuseColor.rgb *= mix(0.80, 1.18, gazonMacro);
 #endif`
 const RUIS_FRAG_GLSL = /* glsl */`
-  diffuseColor.rgb *= mix(1.0, 0.86, texture2D(uRuis, vWereld.xz / ${RUIS_M.toFixed(1)}).r);`
+  diffuseColor.rgb *= mix(1.0, 0.90, texture2D(uRuis, vWereld.xz / ${RUIS_M.toFixed(1)}).r);`
 
 function maakGazonShader(ruisTex) {
   const fn = shader => {
@@ -108,19 +108,19 @@ function Grasvlakte({ L, hoog }) {
 }
 
 // ── 3D-grasrand ────────────────────────────────────────────────────────────────
-// Alphamasker 64 × 96 met vijf sprieten (wit op zwart), voor alphaTest 0.5.
+// Alphamasker 64 × 96 met zeven dunne sprieten (wit op zwart), voor alphaTest 0.5.
 function sprietMasker() {
   return canvasTex(64, 96, (g, w, h) => {
     const r = rng(17)
     g.fillStyle = '#000000'
     g.fillRect(0, 0, w, h)
     g.fillStyle = '#ffffff'
-    for (let k = 0; k < 5; k++) {
-      const x0 = 18 + k * 7 + (r() - 0.5) * 4
-      const lean = (r() - 0.5) * 34
-      const top = 4 + r() * 14
+    for (let k = 0; k < 7; k++) {
+      const x0 = 14 + k * 6 + (r() - 0.5) * 4
+      const lean = (r() - 0.5) * 36
+      const top = 3 + r() * 22
       const bocht = (r() - 0.5) * 10
-      const breed = 4.5 + r() * 2
+      const breed = 2.6 + r() * 1.4
       // Spriet als gebogen, taps toelopende veelhoek: rand links omhoog, rand rechts terug.
       const links = [], rechts = []
       for (let s = 0; s <= 8; s++) {
@@ -173,35 +173,36 @@ function Grasrand({ L, aantal }) {
     const xMin = -erfX + 1.6, xMax = erfX - 0.8, zMin = L.vrijstaand ? -1.5 : 0.02, zMax = tuinD - 0.8
     const opTerras = (x, z) => Math.abs(x) < bx && z > bz0 && z < bz1
     const vrij = (x, z) => x > xMin && x < xMax && z > zMin && z < zMax && !opTerras(x, z)
-    // Afstand tot de terrasrand: dichtbij dichter bezet (kwadratisch), tot 1,2 m.
+    // Afstand tot de terrasrand: dichtbij dichter bezet (macht 2,2), tot 1,2 m.
     const kandidaat = () => {
-      const d = 0.02 + 1.18 * r() * r()
+      const d = 0.02 + 1.18 * Math.pow(r(), 2.6)
       if (!L.vrijstaand && r() < 0.22) {
         // Langs de gevelborder (0,6 m diep) naast het terras.
         const kant = r() < 0.5 ? -1 : 1
-        return [kant * (bx + 0.1 + r() * Math.max(0.1, (kant < 0 ? -xMin : xMax) - bx - 0.2)), r() * 0.6]
+        return [kant * (bx + 0.1 + r() * Math.max(0.1, (kant < 0 ? -xMin : xMax) - bx - 0.2)), r() * 0.6, 0.3]
       }
       const omtrek = 2 * (bz1 - bz0) + 2 * bx + (L.vrijstaand ? 2 * bx : 0)
       let t = r() * omtrek
-      if (t < bz1 - bz0) return [-bx - d, bz0 + t]
+      if (t < bz1 - bz0) return [-bx - d, bz0 + t, d]
       t -= bz1 - bz0
-      if (t < bz1 - bz0) return [bx + d, bz0 + t]
+      if (t < bz1 - bz0) return [bx + d, bz0 + t, d]
       t -= bz1 - bz0
-      if (t < 2 * bx) return [-bx + t, bz1 + d]
+      if (t < 2 * bx) return [-bx + t, bz1 + d, d]
       t -= 2 * bx
-      return [-bx + t, bz0 - d]
+      return [-bx + t, bz0 - d, d]
     }
     let n = 0
     for (let pogingen = 0; n < aantal && pogingen < aantal * 6; pogingen++) {
-      const [x, z] = kandidaat()
+      const [x, z, d] = kandidaat()
       if (!vrij(x, z)) continue
-      const schaal = 0.7 + r() * 0.6
+      // Pollen van 5–15 cm; dicht bij de rand iets hoger (het gras dat de maaier mist).
+      const schaal = (0.4 + r() * 0.45) * (d < 0.25 ? 1.1 : 0.85)
       p.set(x, 0, z)
       q.setFromAxisAngle(as, r() * Math.PI)
       s.set(schaal, schaal * (0.85 + r() * 0.3), schaal)
       m.setMatrixAt(n, M.compose(p, q, s))
       // Lichte variatie: iets geler of iets donkerder groen per pol.
-      kleur.setRGB(0.9 + r() * 0.25, 0.92 + r() * 0.16, 0.85 + r() * 0.2)
+      kleur.setRGB(0.6 + r() * 0.35, 0.62 + r() * 0.3, 0.55 + r() * 0.3)
       m.setColorAt(n, kleur)
       n++
     }
@@ -213,7 +214,7 @@ function Grasrand({ L, aantal }) {
 
   return (
     <instancedMesh ref={mesh} args={[geom, undefined, aantal]} receiveShadow>
-      <meshStandardMaterial color="#6e9a3e" roughness={1} side={THREE.DoubleSide} alphaMap={masker} alphaTest={0.5}
+      <meshStandardMaterial color="#55762a" roughness={1} envMapIntensity={0.45} side={THREE.DoubleSide} alphaMap={masker} alphaTest={0.5}
         onBeforeCompile={natShader(false)} customProgramCacheKey={natKeyFn(false)} />
     </instancedMesh>
   )

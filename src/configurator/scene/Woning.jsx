@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { useEffect, useMemo } from 'react'
 import { RoundedBox } from '@react-three/drei'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { baksteen, hout } from './textures.js'
 import { useFotoTexturen, FotoMateriaal } from './fotoTexturen.js'
 import { useMat } from './materials.js'
@@ -43,7 +44,7 @@ const NOK_H = 3.4, OVERSTEK = 0.4, DAK_DIKTE = 0.05
 // 'camera' staat op de buitenwereld belicht, zoals in ref1), 's avonds ongedempt zodat de
 // lampen de kamer vullen. Alleen het belichte deel wordt gedempt, emissie niet. Eén
 // gedeelde uniform voor alle interieurmaterialen; Panden zet hem synchroon per render.
-const DEMP_DAG = 0.28
+const DEMP_DAG = 0.22
 const INTERIEUR_DEMP = { value: DEMP_DAG }
 const dempShader = shader => {
   shader.uniforms.uDemp = INTERIEUR_DEMP
@@ -128,8 +129,17 @@ function wigGeometrie(xVan, xTot, zVoor, run) {
 // wanden, het plafond en de vloer ziet. Het voorvlak is onzichtbaar, zodat het
 // 'achter'-standpunt (camera in de woning) door de pui naar buiten kijkt. Overdag donker
 // (lage envMapIntensity), 's avonds warm verlicht via `emissie`.
-function Kamerbox({ position, args, wand = WAND, plafond = PLAFOND, vloerKleur = '#a89b86', vloerFoto = null, vloerTerugval = null, envMap = 0.3, emissie = 0 }) {
+// `eenvoudig`: één materiaal voor alle vlakken (één draw call), voor de kleine kamers achter ramen.
+function Kamerbox({ position, args, wand = WAND, plafond = PLAFOND, vloerKleur = '#a89b86', vloerFoto = null, vloerTerugval = null, envMap = 0.3, emissie = 0, eenvoudig = false }) {
   const basis = { side: THREE.BackSide, roughness: 0.9, envMapIntensity: envMap, emissive: LAMP, ...DEMP }
+  if (eenvoudig) {
+    return (
+      <mesh position={position} renderOrder={1} receiveShadow>
+        <boxGeometry args={args} />
+        <meshStandardMaterial {...basis} color={wand} emissiveIntensity={emissie} />
+      </mesh>
+    )
+  }
   return (
     <mesh position={position} renderOrder={1} receiveShadow>
       <boxGeometry args={args} />
@@ -149,14 +159,19 @@ function Kamerbox({ position, args, wand = WAND, plafond = PLAFOND, vloerKleur =
 // daarachter een kamerbox van 1 m diep die 5 cm ruimer is dan de opening (geen
 // samenvallende vlakken met de dagkanten).
 function Raam({ x, y, z = 0, b, h, kozijn = KOZIJN, stijl = true, dorpel = true, latei = true, glas, kamer }) {
-  const kg = useGeometrie(() => kozijnGeometrie(b, h, KOZIJN_B, KOZIJN_D), [b, h])
+  // Kozijn en tussenstijl samengevoegd tot één geometrie (één draw call per raam).
+  const kg = useGeometrie(() => {
+    const k = kozijnGeometrie(b, h, KOZIJN_B, KOZIJN_D)
+    if (!stijl) return k
+    const st = new THREE.BoxGeometry(KOZIJN_B, h - 2 * KOZIJN_B, KOZIJN_D).toNonIndexed()
+    const g = mergeGeometries([k, st], false)
+    k.dispose(); st.dispose()
+    return g
+  }, [b, h, stijl])
   const kleur = { color: kozijn, roughness: 0.5, metalness: 0.2 }
   return (
     <group position={[x, y, z]}>
       <mesh geometry={kg} position={[0, 0, -KOZIJN_D / 2]} castShadow><meshStandardMaterial {...kleur} /></mesh>
-      {stijl && (
-        <mesh position={[0, 0, -KOZIJN_D / 2]}><boxGeometry args={[KOZIJN_B, h - 2 * KOZIJN_B, KOZIJN_D]} /><meshStandardMaterial {...kleur} /></mesh>
-      )}
       <mesh position={[0, 0, -KOZIJN_D / 2]} renderOrder={3} material={glas}><boxGeometry args={[b - 2 * KOZIJN_B, h - 2 * KOZIJN_B, 0.01]} /></mesh>
       {dorpel && (
         <mesh position={[0, -h / 2 - 0.03, 0.08]} castShadow><boxGeometry args={[b + 0.12, 0.06, 0.16]} /><meshStandardMaterial color={DORPEL} roughness={0.6} /></mesh>
@@ -164,7 +179,7 @@ function Raam({ x, y, z = 0, b, h, kozijn = KOZIJN, stijl = true, dorpel = true,
       {latei && (
         <mesh position={[0, h / 2 + 0.05, 0.02]} castShadow><boxGeometry args={[b + 0.12, 0.10, 0.04]} /><meshStandardMaterial color={LATEI} roughness={0.7} metalness={0.3} /></mesh>
       )}
-      <Kamerbox position={[0, 0, -0.05 - 0.5]} args={[b + 0.1, h + 0.1, 1.0]} {...kamer} />
+      <Kamerbox position={[0, 0, -0.05 - 0.5]} args={[b + 0.1, h + 0.1, 1.0]} eenvoudig {...kamer} />
     </group>
   )
 }

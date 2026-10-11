@@ -1,28 +1,42 @@
 // Wandvullingen voor één vak/zijde. Lokaal assenstelsel: de wand loopt van
 // x = -lengte/2 tot +lengte/2, y = 0 tot hoogte, buitenkant = +z.
-import { useRef } from 'react'
+import * as THREE from 'three'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { RoundedBox } from '@react-three/drei'
 import { useMat, paneelVoor } from './materials.js'
 import { useAnim, klikbaar } from './anim.js'
 import { aantalSchuifPanelen, aantalPuiVleugels } from '../layout.js'
 import { SCHUIFWAND } from '../options.js'
+import { MOBIEL } from './kwaliteit.js'
 
+// Rails, kozijnen en profielen: box met 3 mm afgeronde langskanten, zodat de randen
+// een lichte highlight vangen zoals echt aluminium. Buitenmaten blijven exact `args`;
+// op mobiel minder bevel-segmenten (zelfde afronding, minder driehoeken).
 function Box({ args, position, mat, schaduw = true }) {
   return (
-    <mesh position={position} material={mat} castShadow={schaduw} receiveShadow>
-      <boxGeometry args={args} />
-    </mesh>
+    <RoundedBox args={args} radius={0.003} smoothness={2} bevelSegments={MOBIEL ? 2 : 4}
+      position={position} material={mat} castShadow={schaduw} receiveShadow />
   )
 }
 
 // ─── Glazen schuifwand ────────────────────────────────────────────────────────
-function Schuifwand({ lengte, hoogte, open, glas, richting }) {
+// Komgrepen (verzonken rvs-ringen Ø 50 mm) vallen op afstand weg; verder dan
+// GREEP_AFSTAND worden ze verborgen, met één afstandsmeting per wand per frame.
+const GREEP_AFSTAND = 7
+
+function Schuifwand({ lengte, hoogte, open, glas, richting, kubus }) {
   const mat = useMat()
   const n = aantalSchuifPanelen(lengte)
   const overlap = SCHUIFWAND.overlap
   const pw = (lengte + (n - 1) * overlap) / n
   const rail = 0.024
   const railD = n * rail + 0.014
-  const bovenH = 0.055, onderH = 0.028
+  // Bovenrail 55 mm hoog. Bij een kubistische omkasting hangt hij 20 mm in de sponning
+  // onder de balk, zodat er 35 mm zichtbaar onder uitsteekt (bovenkant wand = onderkant balk).
+  const railH = 0.055, onderH = 0.028
+  const verzonken = kubus ? 0.02 : 0
+  const bovenH = railH - verzonken
   const gh = hoogte - bovenH - onderH - 0.03
   const glasMat = paneelVoor(mat, glas)
 
@@ -38,13 +52,36 @@ function Schuifwand({ lengte, hoogte, open, glas, richting }) {
     refs.current.forEach((g, i) => { if (g) g.position.x = dicht(i) + (geopend(i) - dicht(i)) * t })
   })
 
+  // Komgreep: rvs-schaal 1,5 mm op het glas met een donkere kom erin; één geometrie
+  // voor alle panelen van deze wand.
+  const greepGeom = useMemo(() => ({
+    schaal: new THREE.CylinderGeometry(0.025, 0.025, 0.003, 24),
+    kom: new THREE.CylinderGeometry(0.018, 0.018, 0.004, 24),
+  }), [])
+  useEffect(() => () => { greepGeom.schaal.dispose(); greepGeom.kom.dispose() }, [greepGeom])
+
+  // Afstandsschakeling van de grepen: alle greep-groups van deze wand tegelijk.
+  const wortel = useRef()
+  const grepen = useRef([])
+  const grepenZichtbaar = useRef(true)
+  const wereld = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera }) => {
+    if (!wortel.current) return
+    const dichtbij = camera.position.distanceTo(wortel.current.getWorldPosition(wereld)) < GREEP_AFSTAND
+    if (dichtbij === grepenZichtbaar.current) return
+    grepenZichtbaar.current = dichtbij
+    grepen.current.forEach(g => { if (g) g.visible = dichtbij })
+  })
+
   return (
-    <group>
-      <Box args={[lengte, bovenH, railD]} position={[0, hoogte - bovenH / 2, 0]} mat={mat.frame} />
+    <group ref={wortel}>
+      <Box args={[lengte, railH, railD]} position={[0, hoogte - railH / 2 + verzonken, 0]} mat={mat.frame} />
       <Box args={[lengte, onderH, railD]} position={[0, onderH / 2, 0]} mat={mat.frame} />
       {Array.from({ length: n }, (_, i) => {
         const gaatLinks = i < nLinks
-        const greepX = gaatLinks ? pw / 2 - 0.12 : -pw / 2 + 0.12
+        const greepX = gaatLinks ? pw / 2 - 0.09 : -pw / 2 + 0.09
+        // Afdichtstrip op de leidende verticale rand, 1 mm buiten de glasrand (geen samenvallende vlakken).
+        const stripX = gaatLinks ? -pw / 2 + 0.003 : pw / 2 - 0.003
         return (
           <group key={i} ref={el => (refs.current[i] = el)} position={[dicht(i), 0, spoor(i)]}>
             <mesh material={glasMat} position={[0, onderH + 0.02 + gh / 2, 0]} renderOrder={3}>
@@ -52,12 +89,17 @@ function Schuifwand({ lengte, hoogte, open, glas, richting }) {
             </mesh>
             <Box args={[pw, 0.034, 0.02]} position={[0, onderH + 0.02 + gh + 0.017, 0]} mat={mat.frame} />
             <Box args={[pw, 0.03, 0.02]} position={[0, onderH + 0.005, 0]} mat={mat.frame} />
-            {/* Komgreep aan beide kanten van het glas */}
-            {[-1, 1].map(s => (
-              <mesh key={s} position={[greepX, 1.0, s * 0.008]} rotation={[Math.PI / 2, 0, 0]} material={mat.rubber}>
-                <cylinderGeometry args={[0.028, 0.028, 0.006, 24]} />
-              </mesh>
-            ))}
+            {/* Afdichtstrip (tochtstrip) van zwart kunststof over de volle glashoogte */}
+            <Box args={[0.008, gh, 0.014]} position={[stripX, onderH + 0.02 + gh / 2, 0]} mat={mat.rubber} schaduw={false} />
+            {/* Komgreep aan beide kanten van het glas, alleen dichtbij zichtbaar */}
+            <group ref={el => { grepen.current[i] = el; if (el) el.visible = grepenZichtbaar.current }} position={[greepX, 1.0, 0]}>
+              {[-1, 1].map(s => (
+                <group key={s} position={[0, 0, s * 0.0065]} rotation={[Math.PI / 2, 0, 0]}>
+                  <mesh geometry={greepGeom.schaal} material={mat.greep} />
+                  <mesh geometry={greepGeom.kom} material={mat.rubber} />
+                </group>
+              ))}
+            </group>
           </group>
         )
       })}
@@ -170,10 +212,12 @@ function DichteWand({ lengte, hoogte }) {
   )
 }
 
-export function Wand({ w, lengte, hoogte, open, onToggle, position, rotation }) {
+// `kubus`: de wand hangt onder een kubistische omkasting (Cubic/Cubic XL); de bovenrail
+// van een glazen schuifwand verdwijnt dan 20 mm in de balk.
+export function Wand({ w, lengte, hoogte, open, onToggle, position, rotation, kubus = false }) {
   if (!w || w.type === 'open') return null
   let inhoud = null
-  if (w.type === 'schuifwand') inhoud = <Schuifwand lengte={lengte} hoogte={hoogte} open={open} glas={w.glas} richting={w.richting} />
+  if (w.type === 'schuifwand') inhoud = <Schuifwand lengte={lengte} hoogte={hoogte} open={open} glas={w.glas} richting={w.richting} kubus={kubus} />
   if (w.type === 'schuifpui') inhoud = <Schuifpui lengte={lengte} hoogte={hoogte} open={open} richting={w.richting} />
   if (w.type === 'vastglas') inhoud = <VastGlas lengte={lengte} hoogte={hoogte} glas={w.glas} />
   if (w.type === 'dicht') inhoud = <DichteWand lengte={lengte} hoogte={hoogte} />

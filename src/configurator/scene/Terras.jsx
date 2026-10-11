@@ -1,7 +1,7 @@
 // Terrasvloer onder en rond de veranda: een houten vlonder (ref1) of lichte keramische
 // tegels (ref2), precies de verandamaat + 15 cm rondom (L.erf). Rondom een strook kale
 // grond als overgang naar het gazon. Op de mobiele tier (zonder nabewerking/AO) legt een
-// eenmalig gebakken contactschaduw de meubels en staanders op de vloer.
+// eenmalig gebakken contactschaduw de meubels en potten op de vloer.
 // Alle maten in meters; de bovenkant van de vloer ligt op L.vloerY (layout.js VLOER_Y).
 import * as THREE from 'three'
 import { useEffect, useMemo, useRef } from 'react'
@@ -151,10 +151,11 @@ function Grasrand({ L, m, rand }) {
 // ── Contactschaduw (mobiele tier) ──────────────────────────────────────────────
 // Een orthografische camera kijkt vanaf het terrasvlak omhoog (tot `ver` meter), rendert de
 // scène één keer als dieptebeeld, blurt dat twee keer en legt het als donkere vlek op de
-// vloer: bank, tafel, potten en staandervoeten 'staan' dan op het terras. Zelfde techniek als
-// drei's ContactShadows, maar de rendertargets blijven bij maatwijziging bestaan (geen lek
-// bij elke slider-stap), de blur heeft een eigen camera (werkt ook boven y = 0) en er wordt
-// opnieuw gebakken na het laden van de lazy rekwisieten.
+// vloer: bank, tafel en potten 'staan' dan op het terras. Zelfde techniek als drei's
+// ContactShadows, maar: de rendertargets blijven bij maatwijziging bestaan (geen lek bij
+// elke slider-stap), de blur heeft een eigen camera (drei's blurvlak ligt op wereld-y 0 en
+// valt achter een camera boven de vloer), het dieptemateriaal is dubbelzijdig (zie onder)
+// en er wordt opnieuw gebakken na het laden van de lazy rekwisieten.
 function Contactschaduw({ breedte, diepte, position, sleutel, ver = 1.4, blur = 2.4, opacity = 0.45, resolutie = 512, kleur = '#101418' }) {
   const gl = useThree(s => s.gl)
   const scene = useThree(s => s.scene)
@@ -169,7 +170,9 @@ function Contactschaduw({ breedte, diepte, position, sleutel, ver = 1.4, blur = 
       return t
     }
     const doel = maak(), tussen = maak()
-    const diepteMat = new THREE.MeshDepthMaterial({ depthTest: false, depthWrite: false })
+    // DoubleSide: van onderaf gezien ligt de onderkant van bank, tafel en pot áchter het
+    // vlak (ze staan op de vloer); hun bovenvlak is dan het enige vlak in beeld.
+    const diepteMat = new THREE.MeshDepthMaterial({ depthTest: false, depthWrite: false, side: THREE.DoubleSide })
     diepteMat.onBeforeCompile = shader => {
       shader.uniforms.uKleur = { value: new THREE.Color(kleur) }
       shader.fragmentShader = shader.fragmentShader

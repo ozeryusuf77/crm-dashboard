@@ -59,7 +59,11 @@ export function Ritsscreen({ lengte, hoogte, neer, onToggle, position, rotation 
 // Doek loopt onder de liggers van de gevel naar de goot.
 export function OnderdakZonwering({ L, uit, onToggle }) {
   const mat = useMat()
-  const breedte = L.W - 0.16
+  // Doek en cassette passen tussen de zijbalken: bij Cubic/Cubic XL de flush zijomkasting
+  // van L.gootB breed (203 mm, binnenkant op W/2 − gootB) met 20 mm speling per kant,
+  // bij de goot-modellen de 60 mm zijbalk.
+  const breedte = L.kubus ? L.W - 2 * L.gootB - 0.04 : L.W - 0.16
+  const cassetteB = L.kubus ? L.W - 2 * L.gootB - 0.01 : L.W - 0.1
   const doekGeom = useAnkerBox(breedte, 0.004, 1, 'z')
   const doekRef = useRef()
   const lijstRef = useRef()
@@ -86,7 +90,7 @@ export function OnderdakZonwering({ L, uit, onToggle }) {
   return (
     <group {...klikbaar(onToggle)}>
       <mesh material={mat.frame} position={[0, y0, z0 - 0.04]} castShadow>
-        <boxGeometry args={[L.W - 0.1, 0.09, 0.1]} />
+        <boxGeometry args={[cassetteB, 0.09, 0.1]} />
       </mesh>
       <group position={[0, y0, z0]} rotation={[hoek, 0, 0]}>
         <mesh ref={doekRef} geometry={doekGeom} material={mat.doek} renderOrder={4} castShadow />
