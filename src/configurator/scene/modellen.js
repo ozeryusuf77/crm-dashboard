@@ -46,9 +46,40 @@ class ImgTexturen {
   }
 }
 const maakImgTexturen = parser => new ImgTexturen(parser)
-// Stabiele callback: GLTFLoader.register slaat een al geregistreerde functie over, en useLoader
+
+// GLTFLoader-plugin: buffers die als data:-URI in de .gltf zitten zelf decoderen (atob) in
+// plaats van ze te fetchen — fetch van data: is onder een strenge CSP (connect-src 'self')
+// verboden. Zo werkt een .gltf met ingesloten buffer ook op hosts die geen .bin serveren.
+class DataBuffers {
+  constructor(parser) {
+    this.parser = parser
+    this.name = 'CSP_DATA_BUFFERS'
+    this.buffers = new Map()
+  }
+  buffer(i) {
+    const def = this.parser.json.buffers[i]
+    if (!def.uri || !def.uri.startsWith('data:')) return null
+    if (!this.buffers.has(i)) {
+      const bin = atob(def.uri.slice(def.uri.indexOf(',') + 1))
+      const bytes = new Uint8Array(bin.length)
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k)
+      this.buffers.set(i, bytes.buffer)
+    }
+    return this.buffers.get(i)
+  }
+  loadBufferView(i) {
+    const bv = this.parser.json.bufferViews[i]
+    const buf = this.buffer(bv.buffer)
+    if (!buf) return null
+    const start = bv.byteOffset || 0
+    return Promise.resolve(buf.slice(start, start + bv.byteLength))
+  }
+}
+const maakDataBuffers = parser => new DataBuffers(parser)
+
+// Stabiele callbacks: GLTFLoader.register slaat een al geregistreerde functie over, en useLoader
 // roept deze functie bij elke lading opnieuw aan op dezelfde (gememoriseerde) loader.
-export const zonderDecoders = loader => { loader.register(maakImgTexturen) }
+export const zonderDecoders = loader => { loader.register(maakImgTexturen); loader.register(maakDataBuffers) }
 
 const TEXTUUR_VELDEN = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap']
 
