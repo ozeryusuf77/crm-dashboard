@@ -11,7 +11,9 @@ export const useMat = () => useContext(MatContext)
 
 // "Fresnel-glas": de doorzichtigheid dimt alleen de diffuse kleur, niet de
 // spiegelende reflecties — zo blijft glas helder maar glanst het naar de randen.
-// ior 1.52 = floatglas; envMapIntensity 1.0 (dubbel glas: 1.3, twee ruiten spiegelen).
+// ior 1.52 = floatglas. Donker en spiegelend afgesteld (tinten rond '#2a3836', lage
+// opacity): in de referenties is glas vooral een spiegeling van lucht en omgeving met
+// een donkere doorkijk, geen melkwit matglas.
 function glas(kleur, opacity, roughness = 0.03, envMapIntensity = 1.0) {
   const m = new THREE.MeshPhysicalMaterial({
     color: kleur, metalness: 0, roughness, ior: 1.52, specularIntensity: 1,
@@ -33,26 +35,35 @@ function glasrand() {
   return new THREE.MeshStandardMaterial({ color: '#79a98f', metalness: 0, roughness: 0.1, transparent: true, opacity: 0.95 })
 }
 
-// Doorschijnende plaat (polycarbonaat/doek): DoubleSide in één pass voor goedkope sortering.
+// Plaat (polycarbonaat/doek): DoubleSide in één pass; standaard doorschijnend (polyHelder,
+// doek), de dichte platen zetten met DICHT transparent uit.
 function plaat(opties) {
   return new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, forceSinglePass: true, ...opties })
 }
+// Volledig ondoorzichtig (opaal/IR-poly, matglas): geen doorschijn van meubels, geen AO-
+// spookbeelden of ruitpatroon van bovenaf, geen regen door het dak en geen transparant-
+// sortering. De gloed van onderaf komt uit de emissie.
+const DICHT = { transparent: false, depthWrite: true }
 
 // 16 mm opaal polycarbonaat: melkwit met glanzende bovenhuid; de emissie geeft de diffuse
-// gloed van onderaf (daglicht dat door de plaat strooit), op mobiel iets zwakker.
+// gloed van onderaf (daglicht dat door de dichte plaat strooit), op mobiel iets zwakker.
 const OPAAL = () => ({
-  color: '#f4f3ee', opacity: 0.94, roughness: 0.16, metalness: 0, envMapIntensity: 0.6,
-  emissive: '#6b6a64', emissiveIntensity: MOBIEL ? 0.12 : 0.22,
+  color: '#f4f3ee', roughness: 0.16, metalness: 0, envMapIntensity: 0.8,
+  emissive: '#8a8882', emissiveIntensity: MOBIEL ? 0.25 : 0.45,
 })
+
+// Gesatineerd (mat) glas: dicht, licht en diffuus; geen fresnel-hack (die liet de plaat
+// doorschijnen en gaf spookbeelden van bovenaf).
+const matGlas = () => new THREE.MeshPhysicalMaterial({ color: '#eef2f1', roughness: 0.55, metalness: 0, side: THREE.DoubleSide })
 
 function dakMateriaal(id, kanalen) {
   switch (id) {
     case 'polyHelder': return plaat({ color: '#eef5f8', opacity: 0.55, roughness: 0.12, map: kanalen })
-    case 'polyOpaal':  return plaat({ ...OPAAL(), map: kanalen })
-    case 'polyIr':     return plaat({ color: '#ebe4d8', opacity: 0.95, roughness: 0.18, map: kanalen, emissive: '#5c5048', emissiveIntensity: 0.2 })
-    case 'glasMat':    return glas('#eef2f1', 0.82, 0.55)
+    case 'polyOpaal':  return plaat({ ...OPAAL(), map: kanalen, ...DICHT })
+    case 'polyIr':     return plaat({ color: '#ebe4d8', roughness: 0.18, map: kanalen, emissive: '#5c5048', emissiveIntensity: 0.35, ...DICHT })
+    case 'glasMat':    return matGlas()
     case 'glasGetint': return glas('#454b4a', 0.52, 0.02)
-    default:           return glas('#d8e8e6', 0.14)
+    default:           return glas('#2a3836', 0.10)
   }
 }
 
@@ -142,14 +153,15 @@ export function useMaterialen(cfg) {
 
   const vast = useMemo(() => {
     const kanalen = polyKanalen()
-    // 32 kanalen per herhaling van 0,512 m → één kanaal is 16 mm breed op de plaat.
-    kanalen.repeat.set(PLAAT_BREEDTE / 0.512, 1)
+    // 32 kanalen per herhaling van 0,512 m → één kanaal is 16 mm breed op de plaat; in de
+    // lengte 6 herhalingen van de 512 × 64-textuur (minder moiré dan één uitgerekte strook).
+    kanalen.repeat.set(PLAAT_BREEDTE / 0.512, 6)
     const weefsel = doekWeefsel()
     weefsel.repeat.set(30, 30)
     const rand = glasrand()
-    const glasHelder = glas('#d7e6e2', 0.14)
+    const glasHelder = glas('#2a3836', 0.08)
     const glasGetint = glas('#454b4a', 0.52, 0.02)
-    const glasMat = glas('#eef2f1', 0.82, 0.55)
+    const glasMat = matGlas()
     return {
       kanalen, weefsel, rand,
       glasHelder, glasGetint, glasMat,
@@ -159,21 +171,24 @@ export function useMaterialen(cfg) {
         getint: [rand, rand, rand, rand, glasGetint, glasGetint],
         mat: [rand, rand, rand, rand, glasMat, glasMat],
       },
-      // HR++ dubbel glas (schuifpui, woningpui): twee ruiten = sterkere spiegeling.
-      dubbelGlas: glas('#cde0dc', 0.2, 0.03, 1.3),
-      polySpie: plaat({ ...OPAAL(), map: kanalen }),
+      // HR++ dubbel glas (schuifpui, woningpui): donker met spiegeling van lucht en tuin,
+      // zoals in de referenties (geen melkwit matglas); de kamer erachter blijft zichtbaar.
+      dubbelGlas: glas('#1e2a2c', 0.10, 0.03, 1.0),
+      polySpie: plaat({ ...OPAAL(), map: kanalen, ...DICHT }),
       rubber: new THREE.MeshStandardMaterial({ color: '#111214', roughness: 0.8 }),
       rvs: new THREE.MeshStandardMaterial({ color: '#c9ccd0', metalness: 1, roughness: 0.25 }),
       lood: new THREE.MeshStandardMaterial({ color: '#5d6266', metalness: 0.2, roughness: 0.6 }),
       led: new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffe2b0', emissiveIntensity: 0 }),
       heater: new THREE.MeshStandardMaterial({ color: '#2a2b2d', emissive: '#ff5a1f', emissiveIntensity: 0, roughness: 0.4 }),
-      // Doorzichtige PVC-afvoerbuis in de doorkijk-staander (renderOrder 5.5, depthWrite uit).
-      pvc: new THREE.MeshStandardMaterial({ color: '#9aa0a6', roughness: 0.55, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }),
+      // PVC-afvoerbuis in de staander: ondoorzichtig; Afvoer.jsx snijdt de buis met hetzelfde
+      // clipvlak open als de staander (cutaway), zodat de waterkolom zonder transparante
+      // lagen zichtbaar is. renderOrder 5.5 blijft alleen als volgorde binnen de opaque pass.
+      pvc: new THREE.MeshStandardMaterial({ color: '#b9bec3', roughness: 0.5, side: THREE.DoubleSide }),
       // Zwart-aluminium komgreep/handgreep van schuifwanden.
       greep: new THREE.MeshStandardMaterial({ color: '#3a3d42', metalness: 0.8, roughness: 0.3 }),
-      // Schaduw-dither voor dakplaten: helder glas/poly 25 %, opaal/mat 60 % dekking.
-      dakDiepte: new DakDiepteMateriaal({ dekking: 0.25 }),
-      dakDiepteOpaal: new DakDiepteMateriaal({ dekking: 0.6 }),
+      // Schaduw-dither voor dakplaten: helder glas/poly 30 %, opaal/mat 75 % dekking.
+      dakDiepte: new DakDiepteMateriaal({ dekking: 0.3 }),
+      dakDiepteOpaal: new DakDiepteMateriaal({ dekking: 0.75 }),
     }
   }, [])
   useEffect(() => () => {
@@ -188,7 +203,9 @@ export function useMaterialen(cfg) {
   const frame = useMemo(() => natHook(new THREE.MeshPhysicalMaterial(POEDERCOAT())), [])
   // Koppelstuk: zelfde lak, iets donkerder zodat de naad zichtbaar is.
   const koppel = useMemo(() => natHook(new THREE.MeshPhysicalMaterial(POEDERCOAT())), [])
-  // Doorkijk-staander (regenmodus): hetzelfde profiel half doorzichtig, zodat buis en water te zien zijn.
+  // Doorkijk-staander, oude aanpak (half doorzichtig profiel). Niet meer gebruikt: de staander
+  // wordt nu met een clipvlak opengesneden (cutaway in Veranda/Afvoer). Blijft als export
+  // bestaan voor compatibiliteit; wordt wel netjes bijgekleurd en opgeruimd.
   const frameDoorkijk = useMemo(() => natHook(new THREE.MeshPhysicalMaterial({
     ...POEDERCOAT(), transparent: true, opacity: 0.3, depthWrite: false,
   })), [])

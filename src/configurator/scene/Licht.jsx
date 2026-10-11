@@ -1,6 +1,7 @@
 // Belichting van de scène: fotolucht (achtergrond + omgevingsreflecties met een gebakken
 // HDR-zon), zon of maan met schaduw, hemisfeerlicht, mist en een automatische
-// 'bewolkt'-overgang zodra het regent (leest REGEN.uNat per frame, schrijft nooit).
+// 'bewolkt'-overgang zodra het regent (leest REGEN.uNat per frame, schrijft nooit):
+// een lichte, bewolkte dag met een grijze luchtkoepel over de fotolucht, geen schemer.
 //
 //   <Licht nacht L hoog />
 //
@@ -14,6 +15,7 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 import { laadAfbeelding } from './fotoTexturen.js'
 import { MOBIEL } from './kwaliteit.js'
 import { REGEN } from './regenUniforms.js'
+import { RUIS_GLSL } from './regenNat.js'
 
 // LTC-tabellen voor rectAreaLight (Woning.jsx: licht uit de pui op het terras). Eenmalig en
 // idempotent; Woning.jsx doet hetzelfde, zodat het niet van de importvolgorde afhangt.
@@ -49,7 +51,7 @@ const draai = (u, licht) => (u - 0.5) * 2 * Math.PI - Math.atan2(licht[2], licht
 // zonUv: plek van zon/maan in *_omgeving.jpg, gemeten vanaf de bovenrand van de afbeelding;
 // de v wordt bij het bakken omgezet naar de GL-oriëntatie (v = 0 is de onderrand).
 export const DAGDELEN = {
-  dag: { achtergrond: MOBIEL ? 'dag_2k' : 'dag', rotatie: draai(0.5951, ZON), omgeving: 1.0, mist: '#9ca1b2', achtergrondSterkte: 1, zonUv: [0.5957, 0.2148], zonSterkte: 18 },
+  dag: { achtergrond: MOBIEL ? 'dag_2k' : 'dag', rotatie: draai(0.5951, ZON), omgeving: 1.2, mist: '#9ca1b2', achtergrondSterkte: 1, zonUv: [0.5957, 0.2148], zonSterkte: 18 },
   nacht: { achtergrond: 'nacht', rotatie: draai(0.5991, MAAN), omgeving: 4, mist: '#0a1522', achtergrondSterkte: 1.5, zonUv: [0.5983, 0.4033], zonSterkte: 3 },
 }
 
@@ -136,16 +138,69 @@ function useFotoLucht(dagdeel) {
 }
 
 // Bewolking bij regen: eindwaarden van de overgang (nat = 1). Vooraf aangemaakte kleuren,
-// zodat de useFrame niets alloceert.
+// zodat de useFrame niets alloceert. Bewolkt = een lichte, grijze regendag: de zon wordt
+// een zwakke, koele schijf en het hemisfeerlicht neemt het over (veel strooilicht), zodat
+// de scène niet in schemer zakt; de mist wordt dichter maar blijft licht.
 const HELDER = {
-  zon: new THREE.Color('#fff4e4'), hemel: new THREE.Color('#cfe0ff'), grond: new THREE.Color('#5a5f45'), mist: new THREE.Color(DAGDELEN.dag.mist),
+  zon: new THREE.Color('#fff4e4'), hemel: new THREE.Color('#cfe0ff'), grond: new THREE.Color('#6b6e58'), mist: new THREE.Color(DAGDELEN.dag.mist),
 }
 const BEWOLKT = {
-  zon: new THREE.Color('#d6dee6'), hemel: new THREE.Color('#9fabb8'), grond: new THREE.Color('#3a4236'), mist: new THREE.Color('#8a9099'),
+  zon: new THREE.Color('#e2e7ec'), hemel: new THREE.Color('#c4cdd6'), grond: new THREE.Color('#53574c'), mist: new THREE.Color('#a7aeb6'),
 }
-const DAG = { zon: 3.0, zonBewolkt: 0.6, hemisfeer: 0.3, hemisfeerBewolkt: 0.75, mistVan: [60, 170], mistTot: [18, 85] }
+const DAG = { zon: 3.4, zonBewolkt: 1.2, hemisfeer: 0.55, hemisfeerBewolkt: 1.5, mistVan: [60, 170], mistTot: [28, 115] }
 const NACHT = { maan: 0.5, maanBewolkt: 0.25, hemisfeer: 0.35, mistVan: [30, 90], mistTot: [14, 40] }
 const lerp = THREE.MathUtils.lerp
+const damp = THREE.MathUtils.damp
+
+// Grijze luchtkoepel bij regen: de fotolucht (blauw, stapelwolken) past niet bij een bui.
+// Eén bol van 350 m (binnen camera-far 400) met BackSide en een verticaal verloop, die met
+// alpha = REGEN.uNat over de fotolucht heen fadet (hetzelfde { value }-object als de natte
+// materialen, zoals de nat-shader: één schrijver). Geen PMREM en geen cross-fade van
+// scene.background, dus geen resolutiesprong en geen dip naar zwart halverwege. De shader
+// eindigt met de tonemapping- en colorspace-chunks van three, zodat hij in beide paden
+// klopt: direct naar het canvas (mobiel) én via de composer (desktop, lineair target).
+const KOEPEL = {
+  zenitDag: '#b9c0c8', horizonDag: '#8d949c', zenitNacht: '#1a2230', horizonNacht: '#0d1522',
+}
+const KOEPEL_VERTEX = /* glsl */`
+varying vec3 vRichting;
+void main() {
+  vRichting = position;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`
+const KOEPEL_FRAGMENT = /* glsl */`
+uniform vec3 zenitDag;
+uniform vec3 horizonDag;
+uniform vec3 zenitNacht;
+uniform vec3 horizonNacht;
+uniform float uNacht;
+uniform float uNat;
+uniform float uTijd;
+varying vec3 vRichting;
+${RUIS_GLSL}
+void main() {
+  vec3 d = normalize(vRichting);
+  float t = smoothstep(-0.02, 0.55, d.y);
+  vec3 kleur = mix(mix(horizonDag, horizonNacht, uNacht), mix(zenitDag, zenitNacht, uNacht), t);
+  // Lichte wolkenvlekken: twee octaven value-ruis op de kijkrichting, traag drijvend.
+  vec2 p = d.xz / max(d.y + 0.35, 0.15) * 1.4 + vec2(uTijd * 0.004, 0.0);
+  float n = 0.65 * ruis(p * 2.0) + 0.35 * ruis(p * 5.0 + 3.7);
+  kleur *= 1.0 + (n - 0.5) * 0.14;
+  gl_FragColor = vec4(kleur, uNat);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`
+function maakKoepel() {
+  return new THREE.ShaderMaterial({
+    vertexShader: KOEPEL_VERTEX, fragmentShader: KOEPEL_FRAGMENT,
+    uniforms: {
+      zenitDag: { value: new THREE.Color(KOEPEL.zenitDag) }, horizonDag: { value: new THREE.Color(KOEPEL.horizonDag) },
+      zenitNacht: { value: new THREE.Color(KOEPEL.zenitNacht) }, horizonNacht: { value: new THREE.Color(KOEPEL.horizonNacht) },
+      uNacht: { value: 0 }, uNat: REGEN.uNat, uTijd: REGEN.uTijd,
+    },
+    side: THREE.BackSide, transparent: true, depthWrite: false, depthTest: true, fog: false,
+  })
+}
 
 export function Licht({ nacht, L, hoog }) {
   const dagdeel = nacht ? 'nacht' : 'dag'
@@ -165,11 +220,14 @@ export function Licht({ nacht, L, hoog }) {
   const doel = useMemo(() => new THREE.Object3D(), [])
   const zDoel = L.erf.tuinD / 2
   const half = Math.max(L.W / 2 + 6, zDoel + 4)
-  const groteKaart = hoog && L.W > 8
+  // Desktop altijd 4096 (fijne, getekende schaduwen van liggers en meubels), mobiel 2048.
+  // Bewust niet aan `hoog` gekoppeld: de key van het licht hangt hieraan en een tierwissel
+  // mag het directionele licht (en daarmee de shadowmap) niet hermounten.
+  const groteKaart = !MOBIEL
   const schaduw = {
     castShadow: true,
     'shadow-mapSize': groteKaart ? [4096, 4096] : [2048, 2048],
-    'shadow-bias': -0.0004, 'shadow-normalBias': 0.03,
+    'shadow-bias': -0.0004, 'shadow-normalBias': 0.02,
     'shadow-camera-left': -half, 'shadow-camera-right': half, 'shadow-camera-top': half, 'shadow-camera-bottom': -half,
     'shadow-camera-near': 1, 'shadow-camera-far': 80,
   }
@@ -178,14 +236,23 @@ export function Licht({ nacht, L, hoog }) {
   // bij gewijzigde maten (half) moet dat expliciet, anders blijft het oude kader staan.
   useEffect(() => { zonRef.current?.shadow.camera.updateProjectionMatrix() }, [half, nacht, groteKaart])
 
+  // Luchtkoepel voor de regen (zie maakKoepel); alleen zichtbaar zodra het nat wordt.
+  const koepelMat = useMemo(maakKoepel, [])
+  useEffect(() => () => koepelMat.dispose(), [koepelMat])
+  const koepelRef = useRef(null)
+
   // Bewolking: één useFrame die alleen schrijft zolang het nat is (of net weer droog werd).
   const hemelRef = useRef(null)
   const mistRef = useRef(null)
   const vorigeNat = useRef(0)
-  useFrame(() => {
+  useFrame((_, dt) => {
     const nat = REGEN.uNat.value > 0.001 ? Math.min(REGEN.uNat.value, 1) : 0
+    // Dag/nacht van de koepel: droog direct zetten (onzichtbaar), tijdens de bui gedempt.
+    const uNacht = koepelMat.uniforms.uNacht
+    uNacht.value = nat === 0 ? (nacht ? 1 : 0) : damp(uNacht.value, nacht ? 1 : 0, 3, dt)
     if (nat === 0 && vorigeNat.current === 0) return
     vorigeNat.current = nat
+    if (koepelRef.current) koepelRef.current.visible = nat > 0.01
     const zon = zonRef.current, hemel = hemelRef.current, mist = mistRef.current
     if (nacht) {
       if (zon) zon.intensity = lerp(NACHT.maan, NACHT.maanBewolkt, nat)
@@ -199,10 +266,11 @@ export function Licht({ nacht, L, hoog }) {
       }
       if (mist) { mist.near = lerp(DAG.mistVan[0], DAG.mistTot[0], nat); mist.far = lerp(DAG.mistVan[1], DAG.mistTot[1], nat); mist.color.lerpColors(HELDER.mist, BEWOLKT.mist, nat) }
     }
-    // Alleen bij de fotolucht: de studio-terugval heeft zijn eigen intensiteit.
+    // Alleen bij de fotolucht: de studio-terugval heeft zijn eigen intensiteit. Mild
+    // gedempt: de grijze koepel neemt het beeld over, de reflecties blijven licht.
     if (lucht) {
-      scene.environmentIntensity = d.omgeving * lerp(1, 0.5, nat)
-      scene.backgroundIntensity = d.achtergrondSterkte * lerp(1, 0.5, nat)
+      scene.environmentIntensity = d.omgeving * lerp(1, 0.75, nat)
+      scene.backgroundIntensity = d.achtergrondSterkte * lerp(1, 0.7, nat)
     }
   })
 
@@ -221,6 +289,11 @@ export function Licht({ nacht, L, hoog }) {
       )}
       {/* Sky (terugval zolang de foto laadt) blijft gemount: geen nieuw shaderobject per wissel. */}
       <Sky visible={!nacht && !lucht} distance={4500} sunPosition={ZON} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
+      {/* Grijze luchtkoepel bij regen: vóór alle andere transparante lagen (renderOrder −10),
+          met dieptetest zodat hij alleen de lucht bedekt; `visible` stuurt de useFrame. */}
+      <mesh ref={koepelRef} material={koepelMat} renderOrder={-10} visible={false}>
+        <sphereGeometry args={[350, 32, 16]} />
+      </mesh>
       <primitive object={doel} position={[0, 0, zDoel]} />
       {nacht ? (
         <>
@@ -235,7 +308,7 @@ export function Licht({ nacht, L, hoog }) {
       ) : (
         <>
           <fog key="mist-dag" ref={mistRef} attach="fog" args={[d.mist, DAG.mistVan[0], DAG.mistVan[1]]} />
-          <hemisphereLight key="hemel-dag" ref={hemelRef} args={['#cfe0ff', '#5a5f45', DAG.hemisfeer]} />
+          <hemisphereLight key="hemel-dag" ref={hemelRef} args={['#cfe0ff', '#6b6e58', DAG.hemisfeer]} />
           <directionalLight
             // Nieuwe key bij een andere kaartgrootte: three maakt de shadowmap alleen opnieuw aan voor een nieuw licht.
             key={`zon-${groteKaart}`} ref={zonRef}

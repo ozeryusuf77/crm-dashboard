@@ -19,6 +19,8 @@ const AFSLUITING = /* glsl */`
 // (uDak = xMin, xMax, zMin, zMax; uDakY = hoogte op zMin, tan helling) of in de woning
 // (uHuis = xMin, xMax, zMin, zMax tot hoogte uHuisY; door de pui zou je ze anders binnen
 // zien vallen) terechtkomen. Het quad staat als billboard om de valrichting naar de camera gedraaid.
+// Fijne regen: 4 mm breed, nauwelijks breedtegroei met de afstand, strepen binnen 0,8–2,5 m van
+// de camera faden uit (geen 'kometen' vlak voor de lens) en elke streep heeft een eigen helderheid.
 export const REGENVAL_VERT = /* glsl */`
 attribute vec3 aOffset;   // startpositie in de doos [0, 2R] × [0, H] × [0, 2R]
 attribute vec2 aEig;      // x = valsnelheid (m/s), y = streeplengte (m)
@@ -50,8 +52,9 @@ void main() {
   vec3 naarCam = cameraPosition - c;
   float d = max(length(naarCam), 0.001);
   vec3 zij = normalize(cross(as, naarCam / d) + vec3(1e-4, 0.0, 0.0));
-  vec3 p = c + as * ((position.y + 0.5) * aEig.y) + zij * (position.x * uBreedte * (1.0 + d * 0.04));
-  vA = uRegen * (1.0 - droog) * smoothstep(0.3, 1.2, d) * (1.0 - smoothstep(uStraal * 0.6, uStraal, d));
+  vec3 p = c + as * ((position.y + 0.5) * aEig.y) + zij * (position.x * uBreedte * (1.0 + d * 0.02));
+  vA = uRegen * (1.0 - droog) * smoothstep(0.8, 2.5, d) * (1.0 - smoothstep(uStraal * 0.6, uStraal, d));
+  vA *= 0.6 + 0.4 * fract(aOffset.x * 7.31 + aOffset.z * 3.17);
   vUv = uv;
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }
@@ -65,7 +68,7 @@ varying float vA;
 void main() {
   float x = abs(vUv.x - 0.5) * 2.0;
   float a = (1.0 - x * x) * smoothstep(0.0, 0.2, vUv.y) * (1.0 - smoothstep(0.6, 1.0, vUv.y));
-  gl_FragColor = vec4(uKleur, a * vA * 0.42);
+  gl_FragColor = vec4(uKleur, a * vA * 0.32);
   ${AFSLUITING}
 }
 `
@@ -95,7 +98,7 @@ void main() {
   float d = max(length(naarCam), 0.001);
   vec3 zij = normalize(cross(as, naarCam / d) + vec3(1e-4, 0.0, 0.0));
   vec3 p = c + as * ((position.y + 0.5) * lengte) + zij * (position.x * 0.012 * (1.0 + d * 0.04));
-  vA = uRegen * actief * (1.0 - t) * 0.6;
+  vA = uRegen * actief * (1.0 - t) * 0.8;
   vUv = uv;
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }
@@ -140,8 +143,9 @@ void main() {
   float str = texture2D(uStroom, vec2(vUv.y * 2.0, u * uHerhaal - uTijd * uSnelheid * uHerhaal)).r;
   float fres = pow(1.0 - abs(dot(normalize(vN), normalize(-vP))), 2.0);
   float kop = smoothstep(uVul - 0.03, uVul, u);
-  vec3 kleur = mix(uKleur, vec3(1.0), fres * 0.6 + str * 0.25);
-  float alpha = clamp(0.55 + 0.35 * str + 0.3 * fres, 0.0, 0.95) * (1.0 - 0.6 * kop) * smoothstep(0.0, 0.5, uGoot);
+  // Water, geen TL-buis: grotendeels doorschijnend, licht alleen langs de rand (fresnel) en in de stroomstructuur.
+  vec3 kleur = mix(uKleur, vec3(1.0), fres * 0.35 + str * 0.15);
+  float alpha = clamp(0.25 + 0.30 * str + 0.40 * fres, 0.0, 0.75) * (1.0 - 0.6 * kop) * smoothstep(0.0, 0.5, uGoot);
   gl_FragColor = vec4(kleur, alpha);
   ${AFSLUITING}
 }
@@ -161,7 +165,7 @@ varying float vA;
 void main() {
   float t = fract(uTijd * 1.4 + aSeed.w);
   vec3 p = uOorsprong + vec3(cos(aSeed.x) * aSeed.y * t, aSeed.z * t - 4.905 * t * t, sin(aSeed.x) * aSeed.y * t);
-  float maat = 0.006 + 0.004 * fract(aSeed.w * 7.3);
+  float maat = 0.009 + 0.006 * fract(aSeed.w * 7.3);
   vec3 r = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);   // camera-rechts (wereld)
   vec3 o = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);   // camera-omhoog (wereld)
   float rek = 1.0 + 0.08 * length(vec2(aSeed.y, aSeed.z - 9.81 * t));
@@ -177,7 +181,7 @@ varying vec2 vUv;
 varying float vA;
 void main() {
   float a = smoothstep(0.5, 0.3, length(vUv - 0.5));
-  gl_FragColor = vec4(vec3(0.91, 0.95, 0.97), a * vA * 0.7);
+  gl_FragColor = vec4(vec3(0.91, 0.95, 0.97), a * vA * 0.6);
   ${AFSLUITING}
 }
 `

@@ -232,8 +232,11 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
     t.hoog = naarHoog
     setHoog(naarHoog)
   }
-  // Doorkijk in de afvoerstaander: bij regen met waterloop, of zolang de klant de afvoer kiest.
-  const doorkijk = (regen && toonWaterloop) || afvoerFocus
+  // Doorkijk (opengesneden afvoerstaander): tijdens de regen bepaalt de 'Waterloop'-chip het,
+  // zonder regen alleen in het afvoerstandpunt zolang de klant de afvoer kiest. Eerder hield
+  // afvoerFocus alles aan, waardoor de chip nooit werkte en de opengesneden staander ook in
+  // Foto/Voorkant bleef staan.
+  const doorkijk = regen ? toonWaterloop : (afvoerFocus && afvoerZicht)
   // Regen blijft gemount zolang hij aan is óf nog uitfadet; Regen meldt via onKlaar dat alles droog is.
   const [regenZichtbaar, setRegenZichtbaar] = useState(regen)
   useEffect(() => { if (regen) setRegenZichtbaar(true) }, [regen])
@@ -250,8 +253,11 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
     <Canvas
       shadows="soft" dpr={hoog ? [1, 1.5] : [1, 1.25]}
       camera={{ fov: start.fov ?? FOV.buiten, near: 0.03, far: 400, position: start.pos.toArray() }}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
-      onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.0 }}
+      // localClippingEnabled: de opengesneden afvoerstaander en -buis (Veranda/Afvoer) snijden
+      // met een clipvlak per materiaal. De exposure geldt ook voor de ToneMapping-pass van de
+      // nabewerking (three zet toneMappingExposure in elk programma met die uniform).
+      gl={{ antialias: true, powerPreference: 'high-performance', localClippingEnabled: true }}
+      onCreated={({ gl }) => { gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1.15 }}
       onPointerMissed={() => { document.body.style.cursor = '' }}
     >
       {/* Geen monitor bij een geforceerde tier (?kwaliteit=hoog|laag) en niet op mobiel (daar is
@@ -260,8 +266,9 @@ export default function Scene({ cfg, L, view, bediening, zetBediening, nacht, to
         <PerformanceMonitor ms={250} iterations={8} threshold={0.75}
           onDecline={() => wisselTier(false)} onIncline={() => wisselTier(true)} />
       )}
-      {/* PCSS vast gemount op desktop: (un)mounten hercompileert álle shaders, dus nooit aan `hoog` koppelen. */}
-      {!MOBIEL && <SoftShadows size={24} samples={16} focus={0} />}
+      {/* PCSS vast gemount op desktop: (un)mounten hercompileert álle shaders, dus nooit aan `hoog` koppelen.
+          size 10: zacht maar nog getekend (ref1), size 24 smeerde de schaduw van liggers en meubels weg. */}
+      {!MOBIEL && <SoftShadows size={10} samples={16} focus={0} />}
       <Licht nacht={nacht} L={L} hoog={hoog} />
       <MetMaterialen cfg={cfg}>
         <Inhoud cfg={cfg} L={L} view={view} bediening={bediening} zetBediening={zetBediening} nacht={nacht}

@@ -1,9 +1,13 @@
 // Nabewerking voor desktop (los geladen, alleen bij `hoog`), afgestemd op de
-// referentiebeelden (archviz-stills): een brede, koele contactschaduw in hoeken en
-// onder meubels, een milde S-curve en iets minder verzadiging, een licht vignet
-// naar de beeldhoeken en SMAA op de hoogste stand zodat dunne aluminium liggers
-// geen trapjes vertonen. 's Avonds gloeien alleen oppervlakken boven 1,0 lineair
-// (verlichte ramen, LED's); overdag is er geen bloom.
+// referentiebeelden (archviz-stills): een korte, neutrale contactschaduw in hoeken en
+// onder meubels, een milde S-curve en iets minder verzadiging, een licht vignet naar
+// de beeldhoeken en SMAA op de hoogste stand zodat dunne aluminium liggers geen
+// trapjes vertonen. 's Avonds gloeien alleen de felste oppervlakken (verlichte ramen,
+// LED's); overdag is er geen bloom. Alles is licht afgesteld: de brede AO, het zware
+// vignet en het extra contrast van ronde 1 maakten het totaalbeeld te donker en vuil.
+// De belichting (exposure) zit niet hier maar op de renderer: three zet
+// toneMappingExposure in elk programma met die uniform, dus ook in de ToneMapping-pass
+// van postprocessing (WebGLRenderer.setProgram).
 //
 // Volgorde van de keten (postprocessing voegt opeenvolgende niet-convolutie-
 // effecten samen tot één pass):
@@ -19,12 +23,14 @@ import { useEffect, useRef } from 'react'
 import { EffectComposer, N8AO, SMAA, Bloom, ToneMapping, BrightnessContrast, HueSaturation, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode, SMAAPreset, EdgeDetectionMode, PredicationMode, VignetteTechnique } from 'postprocessing'
 
-// Ambient occlusion: straal in meters. Groter dan ±1 m geeft halo's rond dunne
-// liggers tegen de lucht; 0,9–1,1 m geeft de 'vuile hoek' van de referenties.
-const AO = { straal: 1.1, verval: 0.45, sterkte: 3.2, kleur: '#0a0c10' }
+// Ambient occlusion: straal in meters. Kort (0,6 m) en neutraal zwart: tekent de
+// contactschaduw onder meubels en in de hoeken zonder het hele terras onder het dak te
+// verdonkeren; een grote straal met hoge sterkte (ronde 1: 1,1 m / 3,2) gaf halo's rond
+// dunne liggers en een vuil totaalbeeld.
+const AO = { straal: 0.6, verval: 0.6, sterkte: 1.5, kleur: '#000000' }
 // Vignet: offset = waar het donker worden begint, darkness = hoe donker de hoeken.
-// Niet boven 0,5: anders oogt de UI-overlay in de hoeken 'vuil'.
-const VIGNET = { offset: 0.3, donkerte: 0.45 }
+// Licht gehouden: in de referenties zijn de hoeken nauwelijks donkerder dan het midden.
+const VIGNET = { offset: 0.45, donkerte: 0.22 }
 
 // De keten zelf. Wordt bij een dag/avond-wissel opnieuw opgebouwd (zie Effecten):
 // een effect dat pas later wordt gemount (Bloom) zet @react-three/postprocessing
@@ -38,9 +44,9 @@ function Keten({ nacht }) {
   return (
     <EffectComposer ref={composer} multisampling={0}>
       <N8AO halfRes quality="high" aoRadius={AO.straal} distanceFalloff={AO.verval} intensity={AO.sterkte} color={AO.kleur} />
-      {nacht ? <Bloom mipmapBlur luminanceThreshold={0.75} luminanceSmoothing={0.3} intensity={0.55} radius={0.6} /> : null}
+      {nacht ? <Bloom mipmapBlur luminanceThreshold={0.9} luminanceSmoothing={0.3} intensity={0.35} radius={0.6} /> : null}
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
-      <BrightnessContrast brightness={0} contrast={0.08} />
+      <BrightnessContrast brightness={0} contrast={0.04} />
       <HueSaturation saturation={-0.04} />
       <Vignette technique={VignetteTechnique.DEFAULT} offset={VIGNET.offset} darkness={VIGNET.donkerte} />
       <SMAA preset={SMAAPreset.ULTRA} edgeDetectionMode={EdgeDetectionMode.COLOR} predicationMode={PredicationMode.DEPTH} />

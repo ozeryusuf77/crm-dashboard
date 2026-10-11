@@ -12,7 +12,7 @@
 //   Dakwater    glinsterende stroompjes over de dakplaten richting goot.
 //   Gootwater   waterband in de (open) goot die naar de afvoerstaander stroomt (Classic/Linea).
 //   Waterloop   per afvoer: waterkolom langs a.pad (TubeGeometry), spetters, rimpelringen en plas.
-//   Druppels    druppels van de gootrand (alleen desktop).
+//   Druppels    druppels van de gootlip (alleen desktop, ook bij !hoog).
 //   Spatjes     kletterende spatjes op het terras rond de veranda (alleen desktop).
 // Render-volgorde: dakwater 3, regenval/spetters/druppels/spatjes 4, straal/plas/ringen 5.
 // `hoog` verlaagt alleen aantallen/uniforms (instanceCount, zichtbaarheid), nooit hermounten.
@@ -33,8 +33,8 @@ const klem = (dt) => Math.min(dt, DT_MAX)
 const damp = (u, doel, snelheid, dt) => { u.value = THREE.MathUtils.damp(u.value, doel, snelheid, dt) }
 
 // Regenkleur (dag/nacht), gedeeld door regenval en druppels; Regenval werkt hem per frame bij.
-const KLEUR_DAG = new THREE.Color('#cfd8e0')
-const KLEUR_NACHT = new THREE.Color('#5b6773')
+const KLEUR_DAG = new THREE.Color('#b8c3cd')
+const KLEUR_NACHT = new THREE.Color('#4a545e')
 const KLEUR_REGEN = { value: KLEUR_DAG.clone() }
 
 // Instanced quad (4 hoekpunten, 2 driehoeken); de instantiedata komt per onderdeel.
@@ -108,9 +108,10 @@ function RegenRegie({ aan, onKlaar }) {
 }
 
 // ─── Regenval ────────────────────────────────────────────────────────────────
-// Doos rond de camera: desktop 7000 strepen in 22 × 11 × 22 m, mobiel/laag 2200 in 14 × 8 × 14 m.
-const REGENVAL_HOOG = { n: 7000, straal: 11, hoogte: 11, breedte: 0.012 }
-const REGENVAL_LAAG = { n: 2200, straal: 7, hoogte: 8, breedte: 0.014 }
+// Doos rond de camera: desktop 11000 fijne strepen (4 mm) in 22 × 11 × 22 m, mobiel/laag 3000
+// (6 mm) in 14 × 8 × 14 m. Dichtbij faden ze uit (geen 'kometen'), op afstand vormen ze een sluier.
+const REGENVAL_HOOG = { n: 11000, straal: 11, hoogte: 11, breedte: 0.004 }
+const REGENVAL_LAAG = { n: 3000, straal: 7, hoogte: 8, breedte: 0.006 }
 const REGENVAL_MAX = MOBIEL ? REGENVAL_LAAG : REGENVAL_HOOG
 
 function Regenval({ L, nacht, hoog }) {
@@ -124,8 +125,8 @@ function Regenval({ L, nacht, hoog }) {
       offset[i * 3] = r() * 2 * straal
       offset[i * 3 + 1] = r() * hoogte
       offset[i * 3 + 2] = r() * 2 * straal
-      eig[i * 2] = 6.5 + r() * 3        // valsnelheid 6,5–9,5 m/s
-      eig[i * 2 + 1] = 0.18 + r() * 0.14 // streeplengte 0,18–0,32 m
+      eig[i * 2] = 7 + r() * 3          // valsnelheid 7–10 m/s
+      eig[i * 2 + 1] = 0.12 + r() * 0.14 // streeplengte 0,12–0,26 m (bewegingsonscherpte bij ±1/60 s)
     }
     g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offset, 3))
     g.setAttribute('aEig', new THREE.InstancedBufferAttribute(eig, 2))
@@ -227,7 +228,8 @@ function Gootwater({ L }) {
   const nAfvoer = L.afvoeren?.length ?? 0
   const s0 = L.afvoeren?.[0]?.s ?? 1
   const banden = useMemo(() => {
-    const y = L.goot === 'rond' ? L.Hf + L.gootH * 0.30 : L.Hf + 0.035
+    // Hoog genoeg in de goot om vanaf het (hogere) afvoerstandpunt zichtbaar te zijn.
+    const y = L.goot === 'rond' ? L.Hf + L.gootH * 0.45 : L.Hf + 0.06
     const z = L.D - L.gootB / 2 - 0.01
     const diep = L.gootB - 0.07
     const lijst = nAfvoer === 2
@@ -238,7 +240,7 @@ function Gootwater({ L }) {
       normal.repeat.set(b.breedte / 0.4, 1)
       const mat = new THREE.MeshPhysicalMaterial({
         color: '#ffffff', transparent: true, opacity: 0, roughness: 0.05, metalness: 0, ior: 1.33,
-        envMapIntensity: 1.6, normalMap: normal, normalScale: new THREE.Vector2(0.8, 0.8), alphaMap: bandMasker(),
+        envMapIntensity: 1.6, normalMap: normal, normalScale: new THREE.Vector2(1.0, 1.0), alphaMap: bandMasker(),
         depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
       })
       return { ...b, y, z, diep, normal, mat }
@@ -249,7 +251,7 @@ function Gootwater({ L }) {
   const refs = useRef([])
   useFrame((_, dtRaw) => {
     const dt = klem(dtRaw)
-    const op = 0.7 * REGEN.uGoot.value
+    const op = 0.85 * REGEN.uGoot.value
     banden.forEach((b, i) => {
       // u loopt mee met +x: een dalende offset beweegt het patroon naar +x (rechter staander).
       b.normal.offset.x = (((b.normal.offset.x - dt * (0.25 / 0.4) * b.s) % 1) + 1) % 1
@@ -305,7 +307,21 @@ function bouwKolom(a) {
   return { geom, lengte, uMond }
 }
 
-function Waterloop({ a, hoog }) {
+// Middelpunt van plas en rimpelringen: het inslagpunt, maar 22 cm binnen de terrasrand gehouden,
+// zodat de plas niet over de opsluitband/grasrand ligt. De spetters blijven op het echte
+// inslagpunt a.grond (fysiek: de mond van de uitloop). terrasZ zoals in Terras.jsx/Spatjes.
+function klemOpTerras(L, grond) {
+  const { terrasW, terrasD } = L.erf
+  const terrasZ = terrasD / 2 - (L.vrijstaand ? 0.15 : 0)
+  const M = 0.22
+  return [
+    THREE.MathUtils.clamp(grond[0], -(terrasW / 2 - M), terrasW / 2 - M),
+    grond[1],
+    THREE.MathUtils.clamp(grond[2], terrasZ - terrasD / 2 + M, terrasZ + terrasD / 2 - M),
+  ]
+}
+
+function Waterloop({ a, L, hoog }) {
   const sleutel = `${a.buis}|${a.pad.map(p => p.map(v => v.toFixed(4)).join(',')).join(';')}`
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const { geom, lengte, uMond } = useMemo(() => bouwKolom(a), [sleutel])
@@ -313,7 +329,7 @@ function Waterloop({ a, hoog }) {
     vertexShader: STRAAL_VERT, fragmentShader: STRAAL_FRAG,
     uniforms: {
       uTijd: REGEN.uTijd, uVul: REGEN.uVul, uGoot: REGEN.uGoot,
-      uKleur: { value: new THREE.Color('#dbeaf2') }, uStroom: { value: straalStructuur() },
+      uKleur: { value: new THREE.Color('#b4c9d6') }, uStroom: { value: straalStructuur() },
       uHerhaal: { value: 1 }, uSnelheid: { value: 1 }, uMond: { value: 1 },
     },
     transparent: true, depthWrite: false, side: THREE.FrontSide, fog: false,
@@ -327,18 +343,19 @@ function Waterloop({ a, hoog }) {
   useEffect(() => () => mat.dispose(), [mat])
 
   const uitstroom = a.richting !== 'onder' && !!a.grond
+  const plek = useMemo(() => (a.grond ? klemOpTerras(L, a.grond) : null), [L, a])
   return (
     <group>
       <mesh name="regen-kolom" geometry={geom} material={mat} renderOrder={5} userData={{ uMond, lengte }} />
       {uitstroom && <Spetters a={a} hoog={hoog} />}
-      {uitstroom && <Ringen a={a} />}
-      {uitstroom && <Plas a={a} />}
+      {uitstroom && <Ringen plek={plek} />}
+      {uitstroom && <Plas a={a} L={L} plek={plek} />}
     </group>
   )
 }
 
-// Spetters: parabolen vanuit het inslagpunt, desktop 160 (laag/mobiel 60).
-const SPETTERS_MAX = MOBIEL ? 60 : 160
+// Spetters: parabolen vanuit het inslagpunt, desktop 220 (laag/mobiel 60).
+const SPETTERS_MAX = MOBIEL ? 60 : 220
 function Spetters({ a, hoog }) {
   const geom = useMemo(() => {
     const g = instantieQuad(SPETTERS_MAX)
@@ -347,7 +364,7 @@ function Spetters({ a, hoog }) {
     for (let i = 0; i < SPETTERS_MAX; i++) {
       seed[i * 4] = r() * Math.PI * 2     // hoek
       seed[i * 4 + 1] = 0.3 + r() * 0.8   // snelheid xz (m/s)
-      seed[i * 4 + 2] = 0.8 + r() * 1.4   // snelheid omhoog (m/s)
+      seed[i * 4 + 2] = 1.0 + r() * 1.6   // snelheid omhoog (m/s)
       seed[i * 4 + 3] = r()               // fase
     }
     g.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seed, 4))
@@ -386,37 +403,39 @@ const ringMateriaal = (aan, tempo, schaal, sterkte) => {
   return m
 }
 
-// Rimpelringen rond het inslagpunt (3, mobiel 2), 0,45 m, uitdijend.
-function Ringen({ a }) {
-  const n = MOBIEL ? 2 : 3
-  const [gx, gy, gz] = a.grond
+// Rimpelringen rond het inslagpunt (4, mobiel 2), 0,6 m, uitdijend; middelpunt `plek` (op het terras geklemd).
+function Ringen({ plek }) {
+  const n = MOBIEL ? 2 : 4
+  const [gx, gy, gz] = plek
   const geom = useMemo(() => ringGeometrie(Array.from({ length: n }, (_, i) => [gx, gy + 0.005, gz, i / n])), [gx, gy, gz, n])
-  const mat = useMemo(() => ringMateriaal(REGEN.uSpetters, 1.1, 0.45, 0.45), [])
+  const mat = useMemo(() => ringMateriaal(REGEN.uSpetters, 1.1, 0.6, 0.7), [])
   useEffect(() => () => geom.dispose(), [geom])
   useEffect(() => () => mat.dispose(), [mat])
   return <mesh name="regen-ringen" geometry={geom} material={mat} frustumCulled={false} renderOrder={5} />
 }
 
-// Plas op het terras: ovaal (lang in de uitstroomrichting), donker spiegelend met rimpels,
-// groeit met uPlas en dooft als laatste uit.
-function Plas({ a }) {
+// Plas op het terras: ovaal (lang in de uitstroomrichting), donker-glanzend met rimpels, in de
+// tint van de vloer (nat hout / natte tegel); groeit met uPlas en dooft als laatste uit.
+// Middelpunt `plek` (op het terras geklemd), richting uit a.n.
+function Plas({ a, L, plek }) {
   const { mat, normal } = useMemo(() => {
     const normal = rimpelNormal().clone()
     normal.repeat.set(3, 3)
     const mat = new THREE.MeshPhysicalMaterial({
-      color: '#0d1215', transparent: true, opacity: 0, roughness: 0.02, metalness: 0,
+      color: '#1b2a33', transparent: true, opacity: 0, roughness: 0.04, metalness: 0,
       clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6,
-      normalMap: normal, normalScale: new THREE.Vector2(0.35, 0.35), alphaMap: plasMasker(),
+      normalMap: normal, normalScale: new THREE.Vector2(0.5, 0.5), alphaMap: plasMasker(),
       depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3,
     })
     return { mat, normal }
   }, [])
   useEffect(() => () => { mat.dispose(); normal.dispose() }, [mat, normal])
+  useEffect(() => { mat.color.set(L.vloer === 'vlonder' ? '#2a2016' : '#1b2a33') }, [mat, L.vloer])
 
   const ref = useRef()
   useFrame((_, dtRaw) => {
     const p = REGEN.uPlas.value
-    mat.opacity = 0.6 * p
+    mat.opacity = 0.75 * p
     if (ref.current) {
       const s = 0.3 + 0.7 * p
       ref.current.scale.set(s, s, s)
@@ -427,9 +446,9 @@ function Plas({ a }) {
 
   // Lokaal +z = uitstroomrichting n; de cirkel ligt plat (lokale y → −z) en is 1,25 × 0,85 gerekt.
   return (
-    <group ref={ref} position={[a.grond[0], a.grond[1] + 0.003, a.grond[2]]} rotation={[0, Math.atan2(a.n[0], a.n[1]), 0]} visible={false}>
+    <group ref={ref} position={[plek[0], plek[1] + 0.003, plek[2]]} rotation={[0, Math.atan2(a.n[0], a.n[1]), 0]} visible={false}>
       <mesh name="regen-plas" rotation={[-Math.PI / 2, 0, 0]} scale={[0.85, 1.25, 1]} material={mat} renderOrder={5}>
-        <circleGeometry args={[0.32, 32]} />
+        <circleGeometry args={[0.24, 32]} />
       </mesh>
     </group>
   )
@@ -437,8 +456,9 @@ function Plas({ a }) {
 
 // ─── Desktop-extra's ─────────────────────────────────────────────────────────
 // Druppels van de buitenlip van goot/omkasting (en bij vrijstaand ook achter); bij een
-// voorscreen vallen ze vóór het screen. Alleen zichtbaar bij `hoog`.
-const DRUPPELS_N = 140
+// voorscreen vallen ze vóór het screen. Op desktop altijd zichtbaar (`hoog` verlaagt alleen het
+// aantal): vanaf ooghoogte is het druppen van de gootlip hét dak→goot-signaal.
+const DRUPPELS_N = 260
 function Druppels({ L, cfg, hoog }) {
   const geom = useMemo(() => {
     const g = instantieQuad(DRUPPELS_N)
@@ -453,20 +473,22 @@ function Druppels({ L, cfg, hoog }) {
   // Randen waar het druppelt: voorrand (bij een voorscreen vóór het screen) en vrijstaand ook de
   // achterrand. Alleen nieuwe materialen als een maat echt verandert (niet bij elke cfg-wissel).
   const voorScreen = !!cfg?.zonwering?.screens?.voor && !L.overstek
-  const zVoor = voorScreen ? L.zVoorStaander + L.sD / 2 + 0.10 : L.kubus ? L.D : L.D + 0.012
+  const zVoor = voorScreen ? L.zVoorStaander + L.sD / 2 + 0.10 : L.kubus ? L.D : L.D + 0.02
+  const yVoor = L.kubus ? L.Hf + L.gootH : L.Hf + L.gootH - 0.01   // gootlip resp. bovenrand omkasting
   const yAchter = L.kubus ? L.Hf : L.achterBalkOnder
   const mats = useMemo(() => {
-    const randen = [{ y0: L.Hf, z: zVoor }]
+    const randen = [{ y0: yVoor, z: zVoor }]
     if (L.vrijstaand) randen.push({ y0: yAchter, z: L.kubus ? 0 : -0.012 })
     return randen.map(r => deeltjesMateriaal(DRUPPEL_VERT, REGENVAL_FRAG, {
       uTijd: REGEN.uTijd, uRegen: REGEN.uRegen, uKleur: KLEUR_REGEN,
       uY0: { value: r.y0 }, uZ: { value: r.z }, uBodem: { value: L.vloerY },
     }))
-  }, [L.Hf, zVoor, L.vrijstaand, yAchter, L.kubus, L.vloerY])
+  }, [yVoor, zVoor, L.vrijstaand, yAchter, L.kubus, L.vloerY])
   useEffect(() => () => geom.dispose(), [geom])
   useEffect(() => () => mats.forEach(m => m.dispose()), [mats])
+  useEffect(() => { geom.instanceCount = hoog ? DRUPPELS_N : 120 }, [hoog, geom])
   return (
-    <group visible={hoog}>
+    <group>
       {mats.map((m, i) => <mesh key={i} name="regen-druppels" geometry={geom} material={m} frustumCulled={false} renderOrder={4} />)}
     </group>
   )
@@ -509,7 +531,7 @@ export default function Regen({ L, cfg, aan = true, nacht = false, hoog = !MOBIE
       <Regenval L={L} nacht={nacht} hoog={hoog} />
       <Dakwater L={L} bediening={bediening} />
       {!L.kubus && <Gootwater L={L} />}
-      {afvoeren.map(a => <Waterloop key={a.kant} a={a} hoog={hoog} />)}
+      {afvoeren.map(a => <Waterloop key={a.kant} a={a} L={L} hoog={hoog} />)}
       {!MOBIEL && <Druppels L={L} cfg={cfg} hoog={hoog} />}
       {!MOBIEL && <Spatjes L={L} hoog={hoog} />}
     </group>

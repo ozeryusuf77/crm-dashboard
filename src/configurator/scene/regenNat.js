@@ -1,6 +1,7 @@
 // Natte oppervlakken bij regen: een onBeforeCompile-injectie voor MeshStandard- en
-// MeshPhysicalMaterial die het oppervlak donkerder en glanzender maakt naarmate
-// REGEN.uNat stijgt en (optioneel) plassen in wereldcoördinaten tekent. De plassen
+// MeshPhysicalMaterial die het oppervlak iets donkerder (×0,80) en vooral glanzender
+// (ruwheid ×0,38) maakt naarmate REGEN.uNat stijgt en (optioneel) plassen (×0,55 donkerder,
+// ruwheid 0,04) in wereldcoördinaten tekent. De plassen
 // liggen vast in de wereld (vWereld.xz), dus ze blijven op hun plek bij camerabeweging
 // en lopen door over tegelnaden. Geen extra draw calls; alleen wat ALU per fragment.
 import { REGEN } from './regenUniforms.js'
@@ -46,9 +47,9 @@ function maakNatShader(plassen) {
       // color_fragment komt in three vóór roughnessmap_fragment: plas hier declareren.
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
   float plas = ${PLAS_GLSL(plassen)};
-  diffuseColor.rgb *= mix(1.0, 0.62, uNat) * mix(1.0, 0.55, plas);`)
+  diffuseColor.rgb *= mix(1.0, 0.80, uNat) * mix(1.0, 0.55, plas);`)
       .replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
-  roughnessFactor *= mix(1.0, 0.45, uNat);
+  roughnessFactor *= mix(1.0, 0.38, uNat);
   roughnessFactor = mix(roughnessFactor, 0.04, plas);`)
       // In een plas kijkt de normaal 'omhoog' (view-space) met een kleine, bewegende rimpel.
       .replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>

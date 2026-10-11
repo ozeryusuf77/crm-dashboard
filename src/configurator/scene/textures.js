@@ -211,11 +211,11 @@ export function poedercoat() {
 }
 
 // Kanaalstructuur van 16 mm meerwandig polycarbonaat: 32 kanalen per herhaling (om de
-// 16 px een fijne lijn) plus per kanaal een zachte gradient, zodat de kanalen door de
-// melkwitte plaat heen schemeren in plaats van als harde strepen. Met repeat
-// PLAAT_BREEDTE / 0.512 wordt één kanaal 16 mm breed.
+// 16 px een fijne, zwakke lijn) plus per kanaal een zachte gradient, zodat de kanalen door
+// de melkwitte plaat heen schemeren in plaats van als harde strepen (moiré). Met repeat
+// PLAAT_BREEDTE / 0.512 wordt één kanaal 16 mm breed; 512 × 64 px, in de lengte herhaald.
 export function polyKanalen() {
-  return canvasTex(512, 16, (g, w, h) => {
+  return canvasTex(512, 64, (g, w, h) => {
     g.fillStyle = '#ffffff'
     g.fillRect(0, 0, w, h)
     for (let x = 0; x < w; x += 16) {
@@ -226,7 +226,7 @@ export function polyKanalen() {
       grad.addColorStop(1, 'rgba(255,255,255,0.06)')
       g.fillStyle = grad
       g.fillRect(x, 0, 16, h)
-      g.fillStyle = 'rgba(120,130,140,0.28)'
+      g.fillStyle = 'rgba(120,130,140,0.10)'
       g.fillRect(x, 0, 1, h)
     }
   })
