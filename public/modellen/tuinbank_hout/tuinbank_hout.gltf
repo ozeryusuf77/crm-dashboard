@@ -1,0 +1,194 @@
+{
+  "asset": {
+    "generator": "naar-gltf.mjs (gltf-transform 4.5), verandaconfigurator",
+    "version": "2.0",
+    "copyright": "CC0 1.0 - Poly Haven (https://polyhaven.com/a/painted_wooden_bench)",
+    "extras": {
+      "bron": "https://polyhaven.com/a/painted_wooden_bench",
+      "licentie": "CC0 1.0 Universal (Poly Haven)",
+      "auteur": "Poly Haven (Rico Cilliers)",
+      "bewerking": "verkleind, gequantiseerd, texturen verkleind",
+      "omzetting": "bouw.mjs (GLB) -> naar-gltf.mjs: .gltf + losse .bin en jpg/png, alles same-origin (geen blob- of data-URI)"
+    }
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 1890,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 677,
+      "max": [
+        32767,
+        25015,
+        13965
+      ],
+      "min": [
+        -32767,
+        -25015,
+        -13965
+      ],
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 677,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 677,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 12
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 3780,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3780,
+      "byteLength": 10832,
+      "byteStride": 16,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "painted_wooden_bench_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "tuinbank_hout_normaal.jpg"
+    },
+    {
+      "name": "painted_wooden_bench_diff",
+      "mimeType": "image/jpeg",
+      "uri": "tuinbank_hout_kleur.jpg"
+    },
+    {
+      "name": "painted_wooden_bench_rough",
+      "mimeType": "image/jpeg",
+      "uri": "tuinbank_hout_ruwheid.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "tuinbank_hout.bin",
+      "byteLength": 14612
+    }
+  ],
+  "materials": [
+    {
+      "name": "painted_wooden_bench",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "bench.002",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "painted_wooden_bench",
+      "translation": [
+        0.006410717964172363,
+        0.4441462408285588,
+        -0.005427248775959015
+      ],
+      "scale": [
+        0.5824717879295349,
+        0.5824717879295349,
+        0.5824717879295349
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "tuinbank_hout",
+      "translation": [
+        -0.006410717964172363,
+        0.0004994967021048069,
+        0.005427248775959015
+      ],
+      "children": [
+        0
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        1
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "KHR_mesh_quantization"
+  ]
+}

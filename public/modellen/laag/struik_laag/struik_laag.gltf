@@ -1,0 +1,328 @@
+{
+  "asset": {
+    "generator": "naar-gltf.mjs (gltf-transform 4.5), verandaconfigurator",
+    "version": "2.0",
+    "copyright": "CC0 1.0 - Poly Haven (https://polyhaven.com/a/wild_rooibos_bush)",
+    "extras": {
+      "bron": "https://polyhaven.com/a/wild_rooibos_bush",
+      "licentie": "CC0 1.0 Universal (Poly Haven)",
+      "auteur": "Poly Haven",
+      "bewerking": "lichte variant voor mobiel (512 px, extra vereenvoudigd)",
+      "omzetting": "bouw.mjs (GLB) -> naar-gltf.mjs: .gltf + losse .bin en jpg/png, alles same-origin (geen blob- of data-URI)"
+    }
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 9798,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 4164,
+      "bufferView": 0,
+      "byteOffset": 19596
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 5016,
+      "bufferView": 0,
+      "byteOffset": 27924
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1634,
+      "max": [
+        27291,
+        20630,
+        25611
+      ],
+      "min": [
+        -19898,
+        -20906,
+        -32767
+      ],
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 1634,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 1634,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 4916,
+      "max": [
+        26339,
+        20942,
+        32767
+      ],
+      "min": [
+        -27291,
+        -14197,
+        -26031
+      ],
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 4916,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 4916,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1726,
+      "max": [
+        21262,
+        14325,
+        27927
+      ],
+      "min": [
+        -19354,
+        -20942,
+        -20902
+      ],
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 1726,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 1726,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 12
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 37956,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 37956,
+      "byteLength": 26144,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 64100,
+      "byteLength": 78656,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 142756,
+      "byteLength": 27616,
+      "byteStride": 16,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "wild_rooibos_bush_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "struik_laag_normaal.jpg"
+    },
+    {
+      "name": "wild_rooibos_bush_diff-wild_rooibos_bush_alpha",
+      "mimeType": "image/png",
+      "uri": "struik_laag_kleur.png"
+    },
+    {
+      "name": "wild_rooibos_bush_rough",
+      "mimeType": "image/jpeg",
+      "uri": "struik_laag_ruwheid.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "struik_laag.bin",
+      "byteLength": 170372
+    }
+  ],
+  "materials": [
+    {
+      "name": "wild_rooibos_bush_twigs",
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    },
+    {
+      "name": "wild_rooibos_bush",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.012",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4,
+            "TEXCOORD_0": 5
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7,
+            "TEXCOORD_0": 8
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 9,
+            "NORMAL": 10,
+            "TEXCOORD_0": 11
+          },
+          "mode": 4,
+          "material": 1,
+          "indices": 2
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "wild_rooibos_bush_a",
+      "translation": [
+        1.592359870672226,
+        0.2696101008914411,
+        -0.11170053482055664
+      ],
+      "scale": [
+        0.42507439851760864,
+        0.42507439851760864,
+        0.42507439851760864
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "struik_laag",
+      "translation": [
+        -1.592359870672226,
+        0.0020769955590367317,
+        0.11170053482055664
+      ],
+      "children": [
+        0
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        1
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "KHR_mesh_quantization"
+  ]
+}

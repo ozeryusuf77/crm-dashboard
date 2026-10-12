@@ -1,0 +1,328 @@
+{
+  "asset": {
+    "generator": "naar-gltf.mjs (gltf-transform 4.5), verandaconfigurator",
+    "version": "2.0",
+    "copyright": "CC0 1.0 - Poly Haven (https://polyhaven.com/a/searsia_lucida)",
+    "extras": {
+      "bron": "https://polyhaven.com/a/searsia_lucida",
+      "licentie": "CC0 1.0 Universal (Poly Haven)",
+      "auteur": "Poly Haven",
+      "bewerking": "lichte variant voor mobiel (512 px, extra vereenvoudigd)",
+      "omzetting": "bouw.mjs (GLB) -> naar-gltf.mjs: .gltf + losse .bin en jpg/png, alles same-origin (geen blob- of data-URI)"
+    }
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 12618,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 6162,
+      "bufferView": 0,
+      "byteOffset": 25236
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 2118,
+      "bufferView": 0,
+      "byteOffset": 37560
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 2196,
+      "max": [
+        27659,
+        27415,
+        14357
+      ],
+      "min": [
+        -26875,
+        -32219,
+        -19886
+      ],
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 2196,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 2196,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 5608,
+      "max": [
+        32767,
+        32219,
+        19426
+      ],
+      "min": [
+        -32767,
+        -19858,
+        -22766
+      ],
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 5608,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 5608,
+      "normalized": true,
+      "bufferView": 2,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 835,
+      "max": [
+        20738,
+        22138,
+        22766
+      ],
+      "min": [
+        -25519,
+        -31315,
+        -18558
+      ],
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 835,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 835,
+      "normalized": true,
+      "bufferView": 3,
+      "byteOffset": 12
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 41796,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 41796,
+      "byteLength": 35136,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 76932,
+      "byteLength": 89728,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 166660,
+      "byteLength": 13360,
+      "byteStride": 16,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "searsia_lucida_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "struik_klein_normaal.jpg"
+    },
+    {
+      "name": "searsia_lucida_diff",
+      "mimeType": "image/png",
+      "uri": "struik_klein_kleur.png"
+    },
+    {
+      "name": "searsia_lucida_rough",
+      "mimeType": "image/jpeg",
+      "uri": "struik_klein_ruwheid.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "struik_klein.bin",
+      "byteLength": 180020
+    }
+  ],
+  "materials": [
+    {
+      "name": "searsia_lucida",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    },
+    {
+      "name": "searsia_lucida_leaves",
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cube.064",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4,
+            "TEXCOORD_0": 5
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7,
+            "TEXCOORD_0": 8
+          },
+          "mode": 4,
+          "material": 1,
+          "indices": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 9,
+            "NORMAL": 10,
+            "TEXCOORD_0": 11
+          },
+          "mode": 4,
+          "material": 1,
+          "indices": 2
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "searsia_lucida_e_LOD0",
+      "translation": [
+        0.5024086833000183,
+        0.49562782514840364,
+        0.7251011282205582
+      ],
+      "scale": [
+        0.5180202126502991,
+        0.5180202126502991,
+        0.5180202126502991
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "struik_klein",
+      "translation": [
+        -0.5024086833000183,
+        0.013726344332098961,
+        -0.7251011282205582
+      ],
+      "children": [
+        0
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        1
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "KHR_mesh_quantization"
+  ]
+}

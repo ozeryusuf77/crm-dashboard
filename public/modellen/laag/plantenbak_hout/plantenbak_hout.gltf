@@ -1,0 +1,193 @@
+{
+  "asset": {
+    "generator": "naar-gltf.mjs (gltf-transform 4.5), verandaconfigurator",
+    "version": "2.0",
+    "copyright": "CC0 1.0 - Poly Haven (https://polyhaven.com/a/planter_box_01)",
+    "extras": {
+      "bron": "https://polyhaven.com/a/planter_box_01",
+      "licentie": "CC0 1.0 Universal (Poly Haven)",
+      "auteur": "Poly Haven",
+      "bewerking": "lichte variant voor mobiel (512 px, extra vereenvoudigd)",
+      "omzetting": "bouw.mjs (GLB) -> naar-gltf.mjs: .gltf + losse .bin en jpg/png, alles same-origin (geen blob- of data-URI)"
+    }
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 12138,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3571,
+      "max": [
+        32767,
+        15257,
+        14853
+      ],
+      "min": [
+        -32767,
+        -15257,
+        -14853
+      ],
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3571,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 8
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5120,
+      "count": 3571,
+      "normalized": true,
+      "bufferView": 1,
+      "byteOffset": 12
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 24276,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 24276,
+      "byteLength": 57136,
+      "byteStride": 16,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "planter_box_01_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "plantenbak_hout_normaal.jpg"
+    },
+    {
+      "name": "planter_box_01_diff",
+      "mimeType": "image/jpeg",
+      "uri": "plantenbak_hout_kleur.jpg"
+    },
+    {
+      "name": "planter_box_01_metal-planter_box_01_rough",
+      "mimeType": "image/jpeg",
+      "uri": "plantenbak_hout_ruwheid.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "plantenbak_hout.bin",
+      "byteLength": 81412
+    }
+  ],
+  "materials": [
+    {
+      "name": "planter_box_01",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.003",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "TEXCOORD_0": 2,
+            "NORMAL": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "planter_box_01",
+      "translation": [
+        -0.0004101097583770752,
+        0.21251228777691722,
+        -0.0003007948398590088
+      ],
+      "scale": [
+        0.45630568265914917,
+        0.45630568265914917,
+        0.45630568265914917
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "plantenbak_hout",
+      "translation": [
+        0.0004101097583770752,
+        -0.00002816971391439438,
+        0.0003007948398590088
+      ],
+      "children": [
+        0
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        1
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "KHR_mesh_quantization"
+  ]
+}

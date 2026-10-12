@@ -1,0 +1,34 @@
+Licentie van de 3D-modellen in deze map
+========================================
+
+Alle modellen komen van Poly Haven (https://polyhaven.com) en zijn uitgebracht onder
+CC0 1.0 Universal (Public Domain Dedication): https://creativecommons.org/publicdomain/zero/1.0/
+Naamsvermelding is niet verplicht, maar wordt door Poly Haven op prijs gesteld.
+
+Map                      Bron (Poly Haven)                                        Auteur (volgens Poly Haven)
+------------------------ -------------------------------------------------------- ----------------------------
+boom_loofboom/           https://polyhaven.com/a/tree_small_02                    Poly Haven
+struik_groot/            https://polyhaven.com/a/searsia_lucida  (variant d)      Poly Haven
+struik_klein/            https://polyhaven.com/a/searsia_lucida  (variant e)      Poly Haven
+struik_laag/             https://polyhaven.com/a/wild_rooibos_bush  (variant a)   Poly Haven
+potplant_hoog/           https://polyhaven.com/a/potted_plant_01                  Poly Haven
+potplant_terracotta/     https://polyhaven.com/a/potted_plant_02                  Rico Cilliers (Poly Haven)
+tuinset_bistro/          https://polyhaven.com/a/outdoor_table_chair_set_01       Poly Haven
+tuinbank_hout/           https://polyhaven.com/a/painted_wooden_bench             Rico Cilliers (Poly Haven)
+plantenbak_hout/         https://polyhaven.com/a/planter_box_01                   Poly Haven
+laag/<naam>/             dezelfde bronnen, lichtere varianten voor mobiel
+
+Elke map bevat <naam>.gltf (JSON), <naam>.bin (geometrie) en de texturen als <naam>[_<onderdeel>]_<rol>.jpg|png.
+
+Bewerkingen (geen invloed op de licentie): meshopt-compressie gedecodeerd, geometrie
+vereenvoudigd (meshoptimizer), bladclusters van de boom vervangen door quads met alfamasker,
+texturen verkleind naar max. 1024 px (JPG / PNG met alfa), quantisatie (KHR_mesh_quantization),
+voet op y=0 en midden op x/z=0 geplaatst. Opbouw: scratchpad/modellen-tools/bouw.mjs.
+
+De bron-URL, licentie en auteur staan ook in elk .gltf-bestand zelf (asset.copyright en asset.extras).
+
+Omgezet naar .gltf + losse bestanden (scratchpad/modellen-tools/naar-gltf.mjs): per model een map
+<naam>/ met <naam>.gltf (JSON), <naam>.bin (geometrie) en <naam>[_<onderdeel>]_<rol>.jpg|png (texturen:
+kleur, normaal, ruwheid). Zo laadt three's GLTFLoader alles als gewone same-origin bestanden, zonder
+decoders en zonder blob:- of data:-URI's. De map laag/ bevat dezelfde modellen in een lichtere variant
+voor mobiel. MODELLEN.json beschrijft per model bestanden, omvang, maten en aanbevolen schaal.
